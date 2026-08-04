@@ -1,0 +1,29 @@
+{
+  "frontend": [
+    "frontend",
+    "front-end",
+    "react",
+    "javascript",
+    "typescript",
+    "ui developer"
+  ],
+  "backend": [
+    "backend",
+    "back-end",
+    "server-side",
+    "api developer",
+    "microservices"
+  ],
+  "data_science": [
+    "data scientist",
+    "data analyst",
+    "machine learning",
+    "deep learning"
+  ],
+  "software_engineering": [
+    "software engineer",
+    "software developer",
+    "developer intern",
+    "programmer"
+  ]
+}

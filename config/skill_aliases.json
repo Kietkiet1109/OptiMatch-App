@@ -1,0 +1,18 @@
+{
+  "amazon web services": "aws",
+  "aws": "aws",
+  "c sharp": "c#",
+  "c-sharp": "c#",
+  "cplusplus": "c++",
+  "continuous integration": "ci/cd",
+  "continuous deployment": "ci/cd",
+  "js": "javascript",
+  "node": "node.js",
+  "nodejs": "node.js",
+  "node.js": "node.js",
+  "postgres": "postgresql",
+  "react.js": "react",
+  "reactjs": "react",
+  "rest api": "rest",
+  "restful api": "rest"
+}
