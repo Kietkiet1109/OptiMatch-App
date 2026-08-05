@@ -1,4 +1,0 @@
-course_code,course_title,course_description,prerequisites,retrieval_date
-CMPT 120,Introduction to Computing Science and Programming Methodology,"Introduction to computing science and programming methodology using a high-level programming language.",,2026-08-04
-CMPT 276,Introduction to Software Engineering,"Software development processes requirements design testing version control and teamwork.","CMPT 225",2026-08-04
-CMPT 353,Computational Data Science,"Data acquisition cleaning analysis statistical methods and scalable data processing.","CMPT 225",2026-08-04
