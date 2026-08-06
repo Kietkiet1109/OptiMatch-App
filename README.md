@@ -153,9 +153,9 @@ A recommendation does not guarantee that the course teaches every detected skill
 The initial public resume data source is:
 
 - **Dataset:** Resume Dataset
-- **Dataset creator:** Saugata Roy Arghya
+- **Dataset creator:** Snehaan Bhawal
 - **Source:** Kaggle
-- **Licence:** Attribution-NonCommercial 4.0 International
+- **Licence:** CC0: Public Domain
 - **Date accessed:** August 4, 2026
 
 Expected fields include:
