@@ -1,0 +1,101 @@
+{
+    "programming_languages": [
+        "python",
+        "java",
+        "javascript",
+        "typescript",
+        "c",
+        "c++",
+        "c#",
+        "go",
+        "golang",
+        "r",
+        "ruby",
+        "php",
+        "swift",
+        "kotlin",
+        "visual basic",
+        "perl",
+        "powershell",
+        "bash"
+    ],
+    "frameworks": [
+        "react",
+        "angular",
+        "vue",
+        "node.js",
+        "django",
+        "flask",
+        "spring",
+        "asp.net",
+        "html",
+        "css",
+        "graphql"
+    ],
+    "databases": [
+        "sql",
+        "sql server",
+        "postgresql",
+        "mysql",
+        "mongodb",
+        "oracle",
+        "sqlite"
+    ],
+    "cloud_and_devops": [
+        "aws",
+        "azure",
+        "gcp",
+        "docker",
+        "kubernetes",
+        "terraform",
+        "jenkins",
+        "ci/cd"
+    ],
+    "data": [
+        "pandas",
+        "numpy",
+        "spark",
+        "hadoop",
+        "scikit-learn",
+        "tensorflow",
+        "pytorch",
+        "tableau",
+        "power bi",
+        "machine learning",
+        "deep learning",
+        "data analysis",
+        "data science"
+    ],
+    "tools": [
+        "git",
+        "github",
+        "gitlab",
+        "linux",
+        "unix",
+        "windows",
+        "rest",
+        "jira",
+        "active directory",
+        "vmware",
+        "office 365",
+        "microsoft 365",
+        "sharepoint"
+    ],
+    "networking_and_security": [
+        "cisco",
+        "tcp/ip",
+        "lan",
+        "wan",
+        "network security",
+        "cybersecurity",
+        "information security",
+        "firewall",
+        "routing",
+        "switching"
+    ],
+    "software_practices": [
+        "unit testing",
+        "agile",
+        "scrum"
+    ]
+}

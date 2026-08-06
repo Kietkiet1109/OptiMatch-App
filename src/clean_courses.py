@@ -140,5 +140,5 @@ courses = courses[
 # Sort courses by course number
 courses = courses.sort_values(by='course_num').reset_index(drop=True)
 
-# Save only the cleaned course dataset
+# Save the cleaned course dataset
 courses.to_csv(outputfile, index=False)

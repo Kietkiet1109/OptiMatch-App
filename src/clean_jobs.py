@@ -91,7 +91,7 @@ for boilerplate in legal_boilerplate:
 jobs['cleaned_description'] = jobs['cleaned_description'].str.lower()
 
 # Remove unwanted characters while preserving
-# Technical punctuation used in C++, C#, .NET and CI/CD
+# Technical punctuation such as C++, C#, .NET and CI/CD
 jobs['cleaned_description'] = jobs['cleaned_description'
 ].str.replace(r'[^a-z0-9+#./\-\s]', ' ', regex=True)
 
