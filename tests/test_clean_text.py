@@ -1,4 +1,4 @@
-from src.clean_text import clean_text
+from src.clean_courses import clean_text
 
 
 def test_html_is_removed() -> None:
