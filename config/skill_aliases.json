@@ -14,5 +14,6 @@
   "react.js": "react",
   "reactjs": "react",
   "rest api": "rest",
-  "restful api": "rest"
+  "restful api": "rest",
+  "golang": "go"
 }
