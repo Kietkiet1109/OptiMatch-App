@@ -1,6 +1,7 @@
 import html
 import re
 import pandas as pd
+from extract_skills import get_skill_pattern, extract_skills
 
 
 # Define input and output file paths
@@ -155,38 +156,23 @@ resumes['cleaned_resume_text'] = (resumes['cleaned_resume_text']
 # Remove resumes that became empty after cleaning
 resumes = resumes[resumes['cleaned_resume_text'].str.strip().ne('')].copy()
 
-# Combine all skill categories into one list
-unique_skills = set()
-for skill_group in tech_skills_dict.values():
-    for skill in skill_group:
-        unique_skills.add(skill.lower())
-
-# Sort skills by length
-sorted_skills = sorted(unique_skills, key=len, reverse=True)
-
-# Escape special characters
-escaped_skills = [re.escape(skill) for skill in sorted_skills]
-
-# Create one regular expression for technical skills
-skill_pattern = r'(?<![a-z0-9])(?:' + '|'.join(escaped_skills) + r')(?![a-z0-9])'
+# Create regular expression for technical skills
+skill_patterns = get_skill_pattern()
 
 # Find technical skills in each resume
-resumes['detected_skills'] = (resumes['cleaned_resume_text']
-                              .str.findall(skill_pattern, flags=re.IGNORECASE))
+detected_skills = []
+for resume_text in resumes['cleaned_resume_text']:
+    current_skills = extract_skills(resume_text, skill_patterns)
+    detected_skills.append(current_skills)
 
-# Get the list of unique technical skills
-resumes['tech_skills'] = resumes['detected_skills'].map(
-    lambda skills: set(skill.lower() for skill in skills) & unique_skills
-)
+# Store detected technical skills
+resumes['tech_skills'] = detected_skills
 
 # Remove resumes that have empty skill list
 resumes = resumes[resumes['tech_skills'].str.len() > 0].copy()
 
-# Calculate the number of unique technical skills
-resumes['num_tech_skills'] = resumes['tech_skills'].apply(lambda l: len(l))
-
-# Remove the temporary detected-skills column
-resumes = resumes.drop(columns=['detected_skills'])
+# Calculate number of unique technical skills
+resumes['num_tech_skills'] = resumes['tech_skills'].map(len)
 
 # Select 100 resumes using a fixed random seed
 if len(resumes) > sample_target:

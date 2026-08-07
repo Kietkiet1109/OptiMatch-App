@@ -1,91 +1,74 @@
-from __future__ import annotations
-
-import argparse
-import re
-from pathlib import Path
-
 import pandas as pd
+import re
 
-from src.common import load_json, normalize_skill
+# Define technical skills file
+tech_skills_file = '../config/tech_skills.json'
 
+# Read technical skills and create one regex pattern
+def get_skill_pattern():
 
-DEFAULT_SKILLS = {
-    "aws",
-    "c",
-    "c++",
-    "c#",
-    "css",
-    "docker",
-    "git",
-    "html",
-    "java",
-    "javascript",
-    "kubernetes",
-    "machine learning",
-    "node.js",
-    "numpy",
-    "pandas",
-    "postgresql",
-    "python",
-    "r",
-    "react",
-    "rest",
-    "sql",
-    "typescript",
-    "unit testing",
-}
+    # Read technical skills from JSON
+    tech_skills_series = pd.read_json(tech_skills_file, typ='series')
+    tech_skills_dict = tech_skills_series.to_dict()
+
+    # Combine all technical skill categories
+    tech_skills = set()
+    for skill_group in tech_skills_dict.values():
+        for skill in skill_group:
+            tech_skills.add(skill)
+
+    # Sort longer skills first
+    sorted_skills = sorted(tech_skills, key=len, reverse=True)
+
+    # Remove ambiguous short skills
+    normal_skills = [skill for skill in sorted_skills
+                     if skill not in ['c', 'r', 'go']]
+
+    # Escape special characters
+    escaped_skills = [re.escape(skill) for skill in normal_skills]
 
 
-def contains_skill(text: str, skill: str) -> bool:
-    pattern = rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])"
-    return bool(re.search(pattern, text.lower()))
-
-
-def extract_skills(
-    text: str,
-    aliases: dict[str, str],
-) -> list[str]:
-    candidates = DEFAULT_SKILLS | set(aliases) | set(aliases.values())
-    detected: set[str] = set()
-
-    for candidate in candidates:
-        if contains_skill(text, candidate):
-            detected.add(normalize_skill(candidate, aliases))
-
-    return sorted(detected)
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Extract normalized technical skills."
-    )
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--text-column", default="cleaned_text")
-    parser.add_argument("--aliases", required=True)
-    parser.add_argument("--output", required=True)
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    dataframe = pd.read_csv(args.input)
-
-    if args.text_column not in dataframe.columns:
-        raise ValueError(
-            f"Missing text column: {args.text_column}"
-        )
-
-    aliases = load_json(args.aliases)
-    dataframe["detected_skills"] = dataframe[
-        args.text_column
-    ].fillna("").map(
-        lambda text: "|".join(extract_skills(str(text), aliases))
+    # Create the main technical skill pattern
+    skill_pattern = (
+        r'(?<![a-z0-9])(?:'
+        + '|'.join(escaped_skills)
+        + r')(?![a-z0-9])'
     )
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    dataframe.to_csv(output_path, index=False)
+    # Add special patterns for C, R and Go
+    special_pattern = (
+        r'|\bc programming\b'
+        r'|\bprogramming in c\b'
+        r'|\bc language\b'
+        r'|\br programming\b'
+        r'|\bprogramming in r\b'
+        r'|\br language\b'
+        r'|\bgolang\b'
+        r'|\bgo programming\b'
+        r'|\bprogramming in go\b'
+        r'|\bgo language\b'
+    )
+
+    # Combine normal and special patterns
+    skill_pattern = skill_pattern + special_pattern
+
+    return skill_pattern
 
 
-if __name__ == "__main__":
-    main()
+# Extract technical skills from text
+def extract_skills(text, skill_pattern):
+
+    # Convert missing text to empty string
+    if text is None:
+        text = ''
+
+    # Find all technical skills
+    detected_skills = re.findall(skill_pattern, str(text).lower(), flags=re.IGNORECASE)
+
+    # Remove empty results
+    detected_skills = [skill for skill in detected_skills if skill != '']
+
+    # Remove duplicates
+    detected_skills = set(detected_skills)
+
+    return detected_skills
