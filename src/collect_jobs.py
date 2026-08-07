@@ -3,14 +3,12 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import shelve
 
-
 url = 'https://www.themuse.com/api/public/jobs'
 datafile = '../data/raw/jobs.shelf'
 outputfile = '../data/raw/jobs.csv'
 
 # Define number of jobs to collect
-total_target = 100
-category_target = 25
+category_target = 75
 
 # Define Computer Science job categories
 categories = [
@@ -20,6 +18,10 @@ categories = [
     'Science and Engineering'
 ]
 
+# Keep track of jobs already collected
+seen_ids = set()
+
+# Create lists for job records
 job_id = []
 job_title = []
 company = []
@@ -54,23 +56,21 @@ with shelve.open(datafile, 'n') as data:
             jobs = result.get('results', [])
 
             for job in jobs:
-                # Check that the requested category appears in the job's category list
-                category_found = False
 
+                # Get all categories for the job
+                category_names = list()
                 for category_item in job.get('categories', []):
-                    category_name = category_item.get('name', '')
+                    category_names.append(category_item.get('name', ''))
 
-                    # Keep only the selected categories
-                    if category_name == current_category:
-                        category_found = True
-
-                # Skip any job outside the selected categories
-                if category_found is False:
+                # Keep only jobs from the requested category
+                if current_category not in category_names:
                     continue
 
                 # Skip all job that have no job id
                 current_job_id = str(job.get('id', ''))
                 if current_job_id == '':
+                    continue
+                if current_job_id in seen_ids:
                     continue
 
                 # Get the job title
@@ -121,6 +121,9 @@ with shelve.open(datafile, 'n') as data:
                     'publication_date': current_publication_date,
                     'job_url': current_job_url
                 }
+
+                # Mark job as collected
+                seen_ids.add(current_job_id)
                 num_job += 1
 
                 # Stop after collecting enough number of jobs for each category
@@ -129,10 +132,6 @@ with shelve.open(datafile, 'n') as data:
 
             # Go to the next page
             page += 1
-
-        # Stop checking categories after reaching the target
-        if len(data) >= total_target:
-            break
 
 
 # Read job records from the shelf

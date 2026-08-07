@@ -1,112 +1,189 @@
-from __future__ import annotations
-
-import argparse
-from pathlib import Path
-
 import pandas as pd
 
+# Define input file paths
+labels_file = '../data/evaluation/human_labels.csv'
+baseline_file = '../outputs/tables/baseline_results.csv'
+gap_file = '../outputs/gaps/gap_results.csv'
 
-def precision_at_k(
-    expected: set[str],
-    predicted: list[str],
-    k: int,
-) -> float:
-    selected = predicted[:k]
+# Define output file path
+outputfile = f'../outputs/evaluation/evaluation_results.csv'
 
-    if not selected:
-        return 0.0
+# Read human labels and model results
+human_labels = pd.read_csv(labels_file)
+baseline_results = pd.read_csv(baseline_file)
+gap_results = pd.read_csv(gap_file)
 
-    relevant = sum(skill in expected for skill in selected)
-    return relevant / len(selected)
+# Convert IDs to strings
+human_labels['job_id'] = human_labels['job_id'].astype(str)
+human_labels['resume_id'] = human_labels['resume_id'].astype(str)
+baseline_results['job_id'] = baseline_results['job_id'].astype(str)
+baseline_results['resume_id'] = baseline_results['resume_id'].astype(str)
+gap_results['job_id'] = gap_results['job_id'].astype(str)
+gap_results['resume_id'] = gap_results['resume_id'].astype(str)
 
+# Check that all human labels were completed
+if human_labels['human_missing_skills'].isna().any():
+    raise Exception('Some human labels are missing')
 
-def recall_at_k(
-    expected: set[str],
-    predicted: list[str],
-    k: int,
-) -> float:
-    if not expected:
-        return 0.0
+# Keep baseline predictions needed for evaluation
+baseline_predictions = baseline_results[['job_id', 'resume_id', 'missing_skills']].copy()
 
-    selected = set(predicted[:k])
-    return len(expected & selected) / len(expected)
+# Rename baseline prediction column
+baseline_predictions = baseline_predictions.rename(
+    columns={'missing_skills': 'baseline_missing_skills'}
+)
 
+# Keep TF-IDF predictions needed for evaluation
+tfidf_predictions = gap_results[['job_id', 'resume_id', 'top_gap_skills']].copy()
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Evaluate skill-gap predictions."
-    )
-    parser.add_argument("--labels", required=True)
-    parser.add_argument("--predictions", required=True)
-    parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--k", type=int, default=3)
-    return parser.parse_args()
+# Merge human labels with baseline predictions
+evaluation = human_labels.merge(
+    baseline_predictions,
+    on=['job_id', 'resume_id'],
+    how='left',
+)
 
+# Treat empty baseline predictions as no missing skills
+evaluation['baseline_missing_skills'] = evaluation['baseline_missing_skills'].fillna('')
 
-def main() -> None:
-    args = parse_args()
+# Merge TF-IDF predictions
+evaluation = evaluation.merge(
+    tfidf_predictions,
+    on=['job_id', 'resume_id'],
+    how='left'
+)
 
-    labels = pd.read_csv(args.labels)
-    predictions = pd.read_csv(args.predictions)
+# Check that predictions were found
+if evaluation['baseline_missing_skills'].isna().any():
+    raise Exception('Some baseline predictions are missing')
 
-    required_prediction_columns = {
-        "job_id",
-        "resume_id",
-        "predicted_skills",
-    }
+if evaluation['top_gap_skills'].isna().any():
+    evaluation['top_gap_skills'] = evaluation['top_gap_skills'].fillna('')
 
-    missing = required_prediction_columns - set(predictions.columns)
+# Create lists for evaluation metrics
+baseline_precision = []
+baseline_recall = []
+baseline_jaccard = []
 
-    if missing:
-        raise ValueError(
-            f"Prediction file is missing columns: {sorted(missing)}"
-        )
+tfidf_precision_3 = []
+tfidf_recall_3 = []
+tfidf_precision_5 = []
+tfidf_recall_5 = []
+tfidf_jaccard_5 = []
 
-    expected_groups = (
-        labels.groupby(["job_id", "resume_id"])["missing_skill"]
-        .apply(lambda values: set(values.astype(str)))
-        .to_dict()
-    )
+baseline_relevant_count = []
+tfidf_relevant_count = []
 
-    results: list[dict] = []
+# Evaluate each held-out resume-job pair
+for index, row in evaluation.iterrows():
 
-    for _, row in predictions.iterrows():
-        key = (row["job_id"], row["resume_id"])
-        expected = expected_groups.get(key, set())
-        predicted = [
-            item.strip()
-            for item in str(row["predicted_skills"]).split("|")
-            if item.strip()
-        ]
+    # Convert human labels to a normalized set
+    human_skills = set()
+    for skill in str(row['human_missing_skills']).split(','):
+        if skill.strip() != '':
+            human_skills.add(skill.strip().lower())
 
-        results.append(
-            {
-                "job_id": key[0],
-                "resume_id": key[1],
-                f"precision_at_{args.k}": precision_at_k(
-                    expected,
-                    predicted,
-                    args.k,
-                ),
-                f"recall_at_{args.k}": recall_at_k(
-                    expected,
-                    predicted,
-                    args.k,
-                ),
-            }
-        )
+    # Convert baseline predictions to a set
+    baseline_skills = set()
+    for skill in str(row['baseline_missing_skills']).split(','):
+        if skill.strip() != '':
+            baseline_skills.add(skill.strip().lower())
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Convert ranked TF-IDF predictions to a list
+    tfidf_skills = list()
+    for skill in str(row['top_gap_skills']).split(','):
+        if skill.strip() != '':
+            tfidf_skills.append(skill.strip().lower())
 
-    result_frame = pd.DataFrame(results)
-    result_frame.to_csv(
-        output_dir / "evaluation_results.csv",
-        index=False,
-    )
+    # Get top 3 and top 5 TF-IDF skills
+    tfidf_top_3 = tfidf_skills[:3]
+    tfidf_top_5 = tfidf_skills[:5]
 
-    print(result_frame.mean(numeric_only=True))
+    # Find correct baseline predictions
+    baseline_correct = baseline_skills & human_skills
 
+    # Calculate baseline precision
+    if len(baseline_skills) > 0:
+        current_precision = len(baseline_correct) / len(baseline_skills)
+    else:
+        current_precision = 0
 
-if __name__ == "__main__":
-    main()
+    # Calculate baseline recall
+    if len(human_skills) > 0:
+        current_recall = len(baseline_correct) / len(human_skills)
+    else:
+        current_recall = 0
+
+    # Calculate baseline Jaccard similarity
+    baseline_union = baseline_skills | human_skills
+
+    if len(baseline_union) > 0:
+        current_jaccard = len(baseline_correct) / len(baseline_union)
+    else:
+        current_jaccard = 0
+
+    baseline_precision.append(current_precision)
+    baseline_recall.append(current_recall)
+    baseline_jaccard.append(current_jaccard)
+    baseline_relevant_count.append(len(baseline_correct))
+
+    # Find correct TF-IDF top 3 predictions
+    tfidf_correct_3 = set(tfidf_top_3) & human_skills
+
+    # Calculate TF-IDF Precision@3
+    if len(tfidf_top_3) > 0:
+        current_precision_3 = len(tfidf_correct_3) / len(tfidf_top_3)
+    else:
+        current_precision_3 = 0
+
+    # Calculate TF-IDF Recall@3
+    if len(human_skills) > 0:
+        current_recall_3 = len(tfidf_correct_3) / len(human_skills)
+    else:
+        current_recall_3 = 0
+
+    tfidf_precision_3.append(current_precision_3)
+    tfidf_recall_3.append(current_recall_3)
+
+    # Find correct TF-IDF top 5 predictions
+    tfidf_correct_5 = set(tfidf_top_5) & human_skills
+
+    # Calculate TF-IDF Precision@5
+    if len(tfidf_top_5) > 0:
+        current_precision_5 = len(tfidf_correct_5) / len(tfidf_top_5)
+    else:
+        current_precision_5 = 0
+
+    # Calculate TF-IDF Recall@5
+    if len(human_skills) > 0:
+        current_recall_5 = len(tfidf_correct_5) / len(human_skills)
+    else:
+        current_recall_5 = 0
+
+    # Calculate TF-IDF Jaccard@5
+    tfidf_union_5 = set(tfidf_top_5) | human_skills
+
+    if len(tfidf_union_5) > 0:
+        current_jaccard_5 = len(tfidf_correct_5) / len(tfidf_union_5)
+    else:
+        current_jaccard_5 = 0
+
+    tfidf_precision_5.append(current_precision_5)
+    tfidf_recall_5.append(current_recall_5)
+    tfidf_jaccard_5.append(current_jaccard_5)
+    tfidf_relevant_count.append(len(tfidf_correct_5))
+
+# Add evaluation metrics to dataframe
+evaluation['baseline_precision'] = baseline_precision
+evaluation['baseline_recall'] = baseline_recall
+evaluation['baseline_jaccard'] = baseline_jaccard
+evaluation['baseline_relevant_count'] = baseline_relevant_count
+evaluation['tfidf_precision_3'] = tfidf_precision_3
+evaluation['tfidf_recall_3'] = tfidf_recall_3
+evaluation['tfidf_precision_5'] = tfidf_precision_5
+evaluation['tfidf_recall_5'] = tfidf_recall_5
+evaluation['tfidf_jaccard_5'] = tfidf_jaccard_5
+evaluation['tfidf_relevant_count'] = tfidf_relevant_count
+
+# Save detailed evaluation results
+evaluation.to_csv(outputfile, index = False)

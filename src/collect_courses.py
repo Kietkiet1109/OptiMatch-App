@@ -24,7 +24,7 @@ soup = BeautifulSoup(response.text, 'html.parser')
 # Find all course blocks by h3-tag
 courses = soup.find_all('h3')
 
-with shelve.open(datafile, 'c') as data:
+with shelve.open(datafile, 'n') as data:
     for course in courses:
         title = course.get_text(strip=True)
         # Collect only CMPT courses
