@@ -31,6 +31,7 @@ evaluation_jobs = (jobs.groupby('category', group_keys = False)
 # Create development and evaluation labels
 jobs['split'] = 'development'
 jobs.loc[jobs['job_id'].isin(evaluation_jobs['job_id']), 'label'] = 'evaluation'
+jobs.loc[~jobs['job_id'].isin(evaluation_jobs['job_id']), 'label'] = 'development'
 
 # Keep only information needed for the split
 job_split = jobs[['job_id', 'job_title', 'category', 'label']].copy()
