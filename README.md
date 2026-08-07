@@ -67,7 +67,7 @@ OptiMatchv1 is the analytical foundation of the OptiMatch-App ecosystem.
 
 It analyses technical skills across:
 
-- Entry-level technology job postings.
+- CS-related technology job postings.
 - Publicly available sample resumes.
 - SFU CMPT course descriptions.
 
