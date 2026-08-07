@@ -4,9 +4,8 @@ import re
 # Define technical skills file
 tech_skills_file = '../config/tech_skills.json'
 
-# Read technical skills and create one regex pattern
-def get_skill_pattern():
-
+# Read technical skills and create one skills set
+def get_skill_set():
     # Read technical skills from JSON
     tech_skills_series = pd.read_json(tech_skills_file, typ='series')
     tech_skills_dict = tech_skills_series.to_dict()
@@ -15,7 +14,16 @@ def get_skill_pattern():
     tech_skills = set()
     for skill_group in tech_skills_dict.values():
         for skill in skill_group:
-            tech_skills.add(skill)
+            tech_skills.add(skill.lower())
+
+    return tech_skills
+
+
+# Create one regex pattern from skills set
+def get_skill_pattern():
+
+    # Get the skills set
+    tech_skills = get_skill_set()
 
     # Sort longer skills first
     sorted_skills = sorted(tech_skills, key=len, reverse=True)
