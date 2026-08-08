@@ -8,6 +8,8 @@ pytest>=8.0
 requests>=2.31
 scikit-learn>=1.4
 scipy>=1.12
+joblib>=1.3
+seaborn>=0.13
 
 # Add PySpark only if the final dataset justifies Spark:
 # pyspark>=3.5

@@ -75,212 +75,300 @@ The system compares a resume with a target job posting, identifies technical ski
 
 ### Main Questions
 
-OptiMatchv1 investigates:
+OptiMatch v1 answers four practical questions:
 
-1. Which technical skills appear most frequently in entry-level technology job postings?
+1. Which technical skills are most frequently requested in CS-related technology jobs?
+2. Which important job-related technical skills are missing or weakly represented in a resume?
+3. Does a TF-IDF gap model provide useful information beyond a simple keyword-overlap baseline?
+4. Which SFU Computing courses are most closely related to the detected skill gaps?
 
-2. How do technical-skill requirements differ across areas such as:
+The system is intended as an analytical and educational tool. It does **not** claim to reproduce confidential ATS logic, predict hiring decisions, or prove whether a candidate possesses a skill.
 
-   - Frontend development.
-   - Backend development.
-   - Data science.
-   - Software engineering.
+## Key Features
 
-3. Which important job-related technical skills are absent or weakly represented in a resume?
+- Collects and cleans public technology job postings.
+- Filters broad job categories to retain CS-related roles.
+- Uses a curated technical-skill dictionary for interpretable matching.
+- Compares resumes and jobs with a simple keyword-overlap baseline.
+- Represents jobs, resumes, and courses in one shared TF-IDF feature space.
+- Calculates cosine similarity and non-negative resume–job gap vectors.
+- Ranks SFU Computing courses by similarity to detected skill gaps.
+- Evaluates baseline and TF-IDF outputs against held-out human labels.
+- Performs exploratory and statistical analysis in a reproducible notebook.
+- Provides a single `main.py` entry point for reproducing the modelling pipeline.
 
-4. Does a TF-IDF-based skill-gap model perform better than a simple keyword-overlap baseline?
+## Project Workflow
 
-5. Which SFU CMPT courses are most closely related to the detected skill gaps?
-
-6. How do resume–job alignment scores differ across technology job domains?
+```text
+Raw jobs + resumes + courses
+          |
+          v
+   Dataset cleaning
+          |
+          v
+ Technical-skill extraction
+          |
+          +-------------------+
+          |                   |
+          v                   v
+ Keyword baseline       Development/evaluation split
+                              |
+                              v
+                     Shared TF-IDF feature space
+                              |
+                              v
+                    Resume-job gap calculation
+                              |
+                              v
+                    SFU course recommendation
+                              |
+                              v
+                    Held-out human evaluation
+                              |
+                              v
+                  Statistical analysis + figures
+```
 
 ### Data Sources
 
-#### Technology Job Postings
+## Dataset Summary
 
-Job postings may be collected from:
+| Dataset | Source | Raw Records | Final Records | Main Use |
+|---|---|---:|---:|---|
+| Jobs | The Muse Jobs API | 300 | 93 | Skill demand, baseline model, TF-IDF gap analysis |
+| Resumes | Kaggle Resume Dataset | 2,484 | 100 | Resume skill extraction and resume–job comparison |
+| Courses | SFU Academic Calendar | 166 | 93 | Course recommendation |
+| Human labels | Manual annotation | 20 pairs | 20 pairs | Held-out model evaluation |
 
-- Publicly accessible Indeed pages.
-- Publicly accessible LinkedIn pages.
-- Public company career pages.
-- Public job-posting datasets with appropriate licences.
+Raw data is kept separate from processed data so the complete workflow can be reproduced.
 
-The project will not attempt to bypass:
+## 1. Technology Job Postings
 
-- CAPTCHAs.
-- Authentication requirements.
-- Rate limits.
-- Access controls.
-- Other anti-automation systems.
+### Source
 
-Where available, each job record should contain:
+Job postings were collected from the public **The Muse Jobs API**.
 
-| Field | Description |
-|---|---|
-| `job_id` | Unique identifier or generated text hash |
-| `title` | Job title |
-| `company` | Company name |
-| `location` | Job location |
-| `posting_date` | Original posting date |
-| `retrieval_date` | Data-collection date |
-| `description` | Complete job-description text |
-| `required_qualifications` | Required qualifications |
-| `preferred_qualifications` | Preferred qualifications |
-| `source` | Source website |
-| `source_url` | Original page URL |
-| `role_domain` | Assigned job category |
-| `text_hash` | Hash used for duplicate detection |
+The initial candidate set used four broad Muse categories:
 
-#### SFU CMPT Course Descriptions
+- Computer and IT
+- Data and Analytics
+- Software Engineering
+- Science and Engineering
 
-Public SFU course pages will be used to collect:
+These categories were used only as an initial filter and were **not assumed to contain only CS-related jobs**.
 
-| Field | Description |
-|---|---|
-| `course_code` | Official course code |
-| `course_title` | Official course title |
-| `course_description` | Public course description |
-| `prerequisites` | Listed prerequisites |
-| `source_url` | Original SFU page |
-| `retrieval_date` | Data-collection date |
+### Job Cleaning
 
-Course recommendations are text-based matches.
+The job-cleaning pipeline:
 
-A recommendation does not guarantee that the course teaches every detected skill or that taking the course guarantees job readiness.
+- Removes duplicate job IDs.
+- Removes exact duplicate descriptions.
+- Detects and removes near-duplicate descriptions using TF-IDF cosine similarity.
+- Removes empty descriptions.
+- Converts HTML entities.
+- Removes HTML tags, URLs, page artifacts, and repeated boilerplate.
+- Normalizes whitespace.
+- Preserves technical punctuation such as `C++`, `C#`, `.NET`, and `CI/CD`.
+- Standardizes the four Muse category labels.
+- Applies title- and description-based CS relevance filtering.
 
-#### Public Resume Dataset
+The additional CS relevance filter was necessary because broad categories could include unrelated roles such as retail, banking, mechanical engineering, thermal engineering, and other non-computing jobs.
 
-The initial public resume data source is:
+After cleaning and CS relevance filtering, **93 jobs** remained.
+
+| Category | Final Jobs |
+|---|---:|
+| Computer and IT | 20 |
+| Data and Analytics | 45 |
+| Science and Engineering | 9 |
+| Software Engineering | 19 |
+| **Total** | **93** |
+
+## 2. Public Resume Dataset
+
+The resume data comes from:
 
 - **Dataset:** Resume Dataset
-- **Dataset creator:** Snehaan Bhawal
+- **Creator:** Snehaan Bhawal
 - **Source:** Kaggle
 - **Licence:** CC0: Public Domain
 - **Date accessed:** August 4, 2026
 
-Expected fields include:
+The raw dataset contains **2,484 resumes** across multiple categories.
 
-| Field | Description |
-|---|---|
-| `resume_id` | Anonymous resume identifier |
-| `resume_text` | Extracted resume text |
-| `category` | Resume category |
-| `source` | Dataset source |
-| `word_count` | Resume word count |
-| `cleaned_text` | Normalized text used by the model |
+OptiMatch v1:
 
-The public resume records are not assumed to represent SFU students or the entire technology-job applicant population.
+- Uses the `Resume_str` text field.
+- Removes records with missing resume text.
+- Removes duplicate resumes.
+- Filters to the `INFORMATION-TECHNOLOGY` category.
+- Selects a reproducible sample of 100 resumes.
+- Assigns stable resume IDs.
+- Masks detected email addresses and phone numbers.
+- Normalizes whitespace.
+- Preserves raw and cleaned text.
+- Calculates resume word counts.
+- Extracts technical skills using the shared extraction module.
 
-### Data Processing
+The final resume dataset contains **100 public IT resumes**.
 
-The OptiMatchv1 pipeline performs:
+These resumes are sample public records and should not be interpreted as representative of all job seekers or SFU students.
 
-1. Data acquisition.
-2. Data validation.
-3. Text extraction.
-4. Personal-information removal.
-5. Text normalization.
-6. Duplicate detection.
-7. Job-domain classification.
-8. Technical-skill extraction.
-9. TF-IDF feature construction.
-10. Resume–job comparison.
-11. Course recommendation.
-12. Statistical evaluation.
-13. Visualization.
+## 3. SFU Computing Course Descriptions
 
-### Text Cleaning Requirements
+Course descriptions were collected from publicly accessible **SFU Academic Calendar** pages.
 
-The cleaning process should:
+The course-cleaning pipeline:
 
-- Remove HTML and navigation content.
-- Normalize whitespace and character encoding.
-- Remove duplicated job postings.
-- Remove repeated corporate boilerplate.
-- Normalize common skill aliases.
-- Preserve meaningful technical punctuation.
-- Preserve important multiword technical expressions.
-- Retain raw and cleaned text for auditing.
+- Removes duplicate course numbers.
+- Removes records with missing descriptions.
+- Normalizes course codes and whitespace.
+- Removes HTML artifacts.
+- Preserves official course descriptions.
+- Separates prerequisite text when available.
+- Removes selected special-topic, project, practicum, co-op, internship, thesis, portfolio, unoffered, and cross-listed records according to documented project rules.
 
-The pipeline must preserve technical terms such as:
+The final course dataset contains **93 SFU Computing courses**.
 
-- C
-- C++
-- C#
-- R
-- Go
-- .NET
-- Node.js
-- React
-- REST
-- AWS
-- SQL
+Course recommendations are based on public course descriptions and should therefore be interpreted as **text-based curriculum matches**, not guarantees that a course teaches every detected skill.
 
-It should also preserve phrases such as:
+## 4. Human Evaluation Labels
 
-- Machine learning.
-- Data structures.
-- Unit testing.
-- Software engineering.
-- Cloud computing.
-- Version control.
-- Continuous integration.
+A fixed held-out evaluation sample contains **20 resume–job pairs**.
 
-### Technical-Skill Extraction
+For each pair, important missing technical skills were manually labelled by comparing:
 
-OptiMatchv1 uses a hybrid skill-extraction approach combining:
+- the held-out job description; and
+- the paired resume text.
 
-- A curated technical-skill dictionary.
-- Skill-alias normalization.
-- Rule-based phrase matching.
-- Unigram features.
-- Bigram features.
-- TF-IDF weights.
+The supplied `human_labels.csv` is treated as fixed evaluation ground truth so results can be reproduced consistently.
 
-Example alias mappings:
+Human annotation is subjective, so these labels should be interpreted as a practical evaluation reference rather than objective proof of technical competency.
 
-```json
-{
-  "js": "javascript",
-  "javascript": "javascript",
-  "node": "node.js",
-  "nodejs": "node.js",
-  "node.js": "node.js",
-  "amazon web services": "aws",
-  "postgres": "postgresql",
-  "reactjs": "react"
-}
+# Technical Approach
+
+## 1. Technical-Skill Dictionary
+
+A curated technical-skill dictionary is stored in:
+
+```text
+config/technical_skills.json
 ```
 
-Generic Named Entity Recognition should not be treated as the only skill-extraction method because general-language models may not recognize technical frameworks, tools, and programming languages accurately.
+It contains skills from areas such as:
 
-### Baseline Model
+- Programming languages
+- Frameworks
+- Databases
+- Cloud and DevOps
+- Data and machine learning
+- Development tools
+- Networking and security
+- Software-development practices
 
-The baseline compares normalized technical-skill sets.
+Examples include Python, Java, JavaScript, SQL, AWS, Azure, GCP, Docker, Kubernetes, Git, CI/CD, machine learning, cybersecurity, and network security.
 
-For a resume $(R)$ and job description $(J)$, it calculates:
+Shared extraction logic is implemented in:
 
-- Shared technical skills.
-- Job skills absent from the resume.
-- Jaccard similarity.
-- Unweighted skill coverage.
-- Weighted skill coverage.
+```text
+src/extract_skills.py
+```
+
+Rule-based matching is used instead of relying only on general-purpose Named Entity Recognition because technical terms such as `C`, `C++`, `C#`, `R`, `Go`, and `Node.js` require careful handling.
+
+## 2. Keyword-Overlap Baseline
+
+The baseline model compares the normalized technical-skill sets of a job and a resume.
+
+For a job skill set $(J)$ and resume skill set $(R)$:
+
+### Shared skills
+
+$$
+J \cap R
+$$
+
+### Missing skills
+
+$$
+J - R
+$$
+
+### Skill coverage
+
+$$
+\text{Skill Coverage}=\frac{|J \cap R|}{|J|}
+$$
+
+### Jaccard similarity
+
+$$
+J(R,J)=\frac{|R \cap J|}{|R \cup J|}
+$$
 
 The baseline is intentionally simple and interpretable.
 
-### TF-IDF Model
+Implementation:
 
-All resumes, job descriptions, and course descriptions must be transformed using the same fitted feature space.
+```text
+src/baseline_model.py
+```
 
-Cosine similarity is calculated as:
+## 3. Development and Evaluation Split
+
+The cleaned job dataset is divided into development and held-out evaluation records using:
+
+```text
+src/split_data.py
+```
+
+Split metadata is stored in:
+
+```text
+data/evaluation/jobs_split.csv
+```
+
+The split column is named `label` with values `development` and `evaluation`.
+
+Randomized operations use:
+
+```python
+random_seed = 353
+```
+
+The final evaluation set contains **20 held-out jobs**.
+
+## 4. Shared TF-IDF Feature Space
+
+Jobs, resumes, and SFU course descriptions are transformed using **one shared TF-IDF vocabulary**.
+
+The vectorizer is fitted on the approved modelling corpus and then used to transform:
+
+- Development jobs
+- Held-out evaluation jobs
+- Resumes
+- Courses
+
+Held-out evaluation jobs are transformed using the fitted vectorizer but are not used to fit the vocabulary.
+
+Using one vectorizer ensures that every dataset is represented in the same feature dimensions.
+
+Implementation:
+
+```text
+src/build_features.py
+```
+
+## 5. Resume–Job Similarity and Gap Calculation
+
+Cosine similarity is calculated for every resume–job pair:
 
 $$
-\operatorname{similarity}(R,J)
-=
+\operatorname{similarity}(R,J)=
 \frac{R \cdot J}{\|R\|\|J\|}
 $$
 
-A non-negative skill-gap vector is defined as:
+A non-negative TF-IDF gap vector is calculated as:
 
 $$
 G_i=\max(J_i-R_i,0)
@@ -288,63 +376,416 @@ $$
 
 where:
 
-- $(J_i)$ is the job-description weight for feature $(i)$.
-- $(R_i)$ is the resume weight for feature $(i)$.
-- $(G_i)$ represents the amount by which the job feature exceeds the resume feature.
+- $(J_i)$ is the job TF-IDF weight for feature $(i)$.
+- $(R_i)$ is the resume TF-IDF weight for feature $(i)$.
+- $(G_i)$ measures how much more strongly the feature appears in the job than in the resume.
 
-For each resume–job pair, OptiMatchv1 produces:
+Only technical-skill features are presented as actionable skill gaps.
 
-- Resume–job similarity score.
-- Technical-skill coverage score.
-- Shared technical skills.
-- Missing or underrepresented technical skills.
-- Evidence from the job description.
-- Ranked SFU CMPT course recommendations.
+Implementation:
 
-### Course Recommendation
+```text
+src/calculate_gaps.py
+```
 
-The skill-gap vector is compared with each SFU CMPT course vector.
+## 6. Course Recommendation
 
-For course $(C)$:
+Each resume–job gap vector is compared with every SFU course vector:
 
 $$
-\operatorname{course\_match}(G,C)
-=
+\operatorname{course\_match}(G,C)=
 \frac{G \cdot C}{\|G\|\|C\|}
 $$
 
-Each result may include:
+Courses are ranked by cosine similarity.
 
-- Course code.
-- Course title.
-- Course-match score.
-- Matching technical terms.
-- Course description.
-- Prerequisites.
+Recommendation output includes:
 
-### OptiMatchv1 Evaluation
+- Course number
+- Course title
+- Similarity score
+- Matching terms
+- Course description
+- Prerequisites when available
 
-The model should be evaluated using a held-out set of manually labelled job postings.
+Implementation:
 
-Potential metrics include:
+```text
+src/recommend_courses.py
+```
 
-- Precision at $(k)$.
-- Recall at $(k)$.
-- Jaccard similarity.
-- Mean number of relevant skills retrieved.
-- Human inter-rater agreement.
-- Baseline-versus-TF-IDF comparison.
-- Qualitative error analysis.
+## 7. Held-Out Evaluation
 
-Possible statistical tests include:
+The keyword baseline and TF-IDF model are evaluated against the same 20 manually labelled held-out resume–job pairs.
 
-- One-way ANOVA.
-- Welch’s ANOVA.
-- Kruskal–Wallis test.
-- Appropriate post-hoc comparisons.
+Evaluation metrics include:
 
-The statistical test must be selected only after inspecting the sample sizes, distributions, and variance assumptions.
+- Precision
+- Recall
+- Jaccard overlap
+- Precision@3
+- Recall@3
+- Precision@5
+- Recall@5
+- Jaccard@5
 
+Implementation:
+
+```text
+src/evaluate.py
+```
+
+Evaluation pairs are prepared using:
+
+```text
+src/label_skills.py
+```
+
+# Results
+
+## Job-Market Skill Demand
+
+The most frequently requested technical skills in the final 93-job dataset were:
+
+| Skill | Job Postings |
+|---|---:|
+| Python | 44 |
+| SQL | 32 |
+| Agile | 31 |
+| Azure | 29 |
+| Machine learning | 27 |
+| AWS | 23 |
+| GCP | 20 |
+| Cybersecurity | 19 |
+| Java | 19 |
+| CI/CD | 15 |
+
+Skill demand differed across categories:
+
+- **Data and Analytics** showed particularly high demand for Python, SQL, and machine learning.
+- **Software Engineering** emphasized Python, Java, Agile, and CI/CD.
+- **Computer and IT** showed stronger emphasis on Azure, AWS, and cybersecurity.
+
+## Resume Skill Profile
+
+The 100 sampled resumes contained an average of approximately **6.5 detected technical skills per resume**.
+
+Frequently observed skills included Windows, Active Directory, SQL, Cisco, Linux, LAN, SharePoint, Oracle, WAN, and VMware.
+
+The sampled resumes were therefore more infrastructure- and IT-oriented than the job dataset, which placed more emphasis on programming, cloud platforms, machine learning, and modern software-development practices.
+
+## Baseline Evaluation
+
+On the 20 held-out evaluation pairs, the keyword baseline achieved approximately:
+
+| Metric | Score |
+|---|---:|
+| Mean precision | 0.3637 |
+| Mean recall | 0.3375 |
+| Mean Jaccard overlap | 0.2086 |
+
+## TF-IDF Evaluation
+
+The TF-IDF model achieved approximately:
+
+| Metric | Score |
+|---|---:|
+| Precision@3 | 0.3583 |
+| Recall@3 | 0.1875 |
+| Precision@5 | 0.3858 |
+| Recall@5 | 0.2775 |
+| Jaccard@5 | 0.2142 |
+
+TF-IDF produced slightly higher Precision@5 and Jaccard overlap than the baseline, while the baseline achieved higher recall.
+
+The mean Jaccard improvement was approximately **0.0055**, so the TF-IDF model did **not clearly dominate** the simpler keyword-overlap baseline.
+
+This result is important because it shows that a more complex text representation does not automatically provide a large improvement over an interpretable rule-based approach.
+
+## Job-Category Gap Scores
+
+Mean job-level gap scores were approximately:
+
+| Category | Mean Gap Score |
+|---|---:|
+| Computer and IT | 0.9739 |
+| Data and Analytics | 0.9768 |
+| Science and Engineering | 0.9718 |
+| Software Engineering | 0.9733 |
+
+A standard one-way ANOVA produced evidence of category differences under the standard ANOVA assumptions, but the equal-variance assumption was not satisfied. The result should therefore be interpreted cautiously.
+
+## Course Recommendations
+
+The most frequently top-ranked SFU courses were:
+
+1. **CMPT 732 - Big Data Lab I**
+2. **CMPT 410 - Machine Learning**
+3. **CMPT 733 - Big Data Lab II**
+4. **CMPT 372 - Web II - Server-side Development**
+5. **CMPT 473 - Software Testing, Reliability and Security**
+
+The highest-ranked recommendations therefore tended to emphasize big data, machine learning, server-side development, software testing, and security/privacy.
+
+Recommendation similarity scores were generally low, which is expected because short course descriptions contain less detail than full job descriptions.
+
+# Analysis and Visualizations
+
+Exploratory analysis, statistical analysis, and visualizations are contained in:
+
+```text
+notebooks/analysis.ipynb
+```
+
+The notebook includes job-market skill frequencies, technical-skill differences by category, resume skill distributions, course coverage, baseline-versus-TF-IDF evaluation performance, gap-score distributions, and course recommendation analysis.
+
+# Repository Structure
+
+```text
+OptiMatch-v1/
+├── README.md
+├── requirements.txt
+├── .gitignore
+│
+├── config/
+│   └── technical_skills.json
+│
+├── data/
+│   ├── raw/
+│   │   ├── jobs.csv
+│   │   ├── resumes.csv
+│   │   └── courses.csv
+│   ├── processed/
+│   │   ├── jobs_clean.csv
+│   │   ├── resumes_clean.csv
+│   │   └── courses_clean.csv
+│   └── evaluation/
+│       ├── jobs_split.csv
+│       └── human_labels.csv
+│
+├── src/
+│   ├── main.py
+│   ├── collect_jobs.py
+│   ├── collect_courses.py
+│   ├── clean_jobs.py
+│   ├── clean_resumes.py
+│   ├── clean_courses.py
+│   ├── extract_skills.py
+│   ├── baseline_model.py
+│   ├── split_data.py
+│   ├── build_features.py
+│   ├── calculate_gaps.py
+│   ├── recommend_courses.py
+│   ├── label_skills.py
+│   └── evaluate.py
+│
+├── notebooks/
+│   └── analysis.ipynb
+│
+└── outputs/
+    ├── tables/
+    ├── features/
+    ├── gaps/
+    ├── recommendations/
+    └── evaluation/
+```
+
+# Installation
+
+## 1. Clone the Repository
+
+```bash
+git clone <REPOSITORY_URL>
+cd OptiMatch-v1
+```
+
+## 2. Create a Virtual Environment
+
+```bash
+python -m venv .venv
+```
+
+Activate on Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Activate on Linux or macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+## 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Spark is not required because the final datasets are small enough to process efficiently with pandas and scikit-learn.
+
+# Reproducing the Final Results
+
+For exact reproduction of the reported results, use the supplied fixed data files:
+
+```text
+data/raw/jobs.csv
+data/raw/resumes.csv
+data/raw/courses.csv
+data/evaluation/human_labels.csv
+```
+
+`collect_jobs.py` and `collect_courses.py` remain available for new data collection, but rerunning them at a later date may produce different raw datasets.
+
+Run the complete modelling pipeline with:
+
+```bash
+python src/main.py
+```
+
+`main.py` executes:
+
+```text
+clean_jobs.py
+    ↓
+clean_resumes.py
+    ↓
+clean_courses.py
+    ↓
+baseline_model.py
+    ↓
+split_data.py
+    ↓
+build_features.py
+    ↓
+calculate_gaps.py
+    ↓
+recommend_courses.py
+    ↓
+evaluate.py
+```
+
+Then run the analysis notebook:
+
+```bash
+jupyter notebook notebooks/analysis.ipynb
+```
+
+Use **Run All** to reproduce the exploratory analysis, statistical analysis, figures, and final findings.
+
+Randomized operations use:
+
+```python
+random_seed = 353
+```
+
+# Main Outputs
+
+The pipeline produces:
+
+```text
+outputs/tables/baseline_results.csv
+
+outputs/features/tfidf_vectorizer.pkl
+outputs/features/development_jobs_tfidf.npz
+outputs/features/evaluation_jobs_tfidf.npz
+outputs/features/resumes_tfidf.npz
+outputs/features/courses_tfidf.npz
+
+outputs/gaps/gap_results.csv
+outputs/gaps/gap_vectors.npz
+
+outputs/recommendations/course_recommendations.csv
+
+outputs/evaluation/evaluation_results.csv
+```
+
+# Responsible Use
+
+OptiMatch v1 is designed to help users understand text-based resume–job alignment.
+
+It must not be interpreted as:
+
+- An official ATS score.
+- A hiring recommendation.
+- Proof that a candidate does or does not possess a skill.
+- A guarantee that a recommended course teaches every detected skill.
+- A guarantee of an interview or job offer.
+
+A skill that is not detected in resume text may still be possessed by the candidate.
+
+The project should therefore be used as a transparent analytical aid rather than an automated hiring decision system.
+
+# Data Privacy
+
+The project may process career-related text and should therefore follow basic privacy principles:
+
+- Do not commit private resumes to a public repository.
+- Remove or mask personal information when practical.
+- Do not store user-provided career documents unnecessarily.
+- Do not use resume content to infer protected personal characteristics.
+- Do not train models on private user documents without explicit permission.
+
+The public repository should contain only legally redistributable, sanitized, or synthetic data.
+
+# Limitations
+
+OptiMatch v1 has several important limitations:
+
+- The Muse job sample does not represent the entire technology labour market.
+- Broad source categories originally included non-CS jobs and required additional relevance filtering.
+- Final job-category sizes are unbalanced.
+- Most sampled jobs are mid- or senior-level roles.
+- The Kaggle resume dataset may not reflect current applicants.
+- Resume text does not directly measure practical technical ability.
+- A missing keyword does not necessarily indicate a missing competency.
+- Skill extraction depends on the curated technical-skill dictionary.
+- TF-IDF measures textual importance rather than semantic mastery.
+- Repeated terms may receive excessive importance.
+- Only 20 resume–job pairs were manually labelled for final evaluation.
+- Human labels are subjective.
+- Course descriptions contain much less detail than complete syllabi or learning outcomes.
+- Low course similarity may reflect limited course-description detail rather than poor curricular relevance.
+- Course similarity does not prove that a course fully addresses a skill gap.
+- The model does not reproduce the private ranking logic of commercial ATS products.
+
+# Future Work
+
+OptiMatch v1 provides the analytical foundation for future versions.
+
+Possible extensions include:
+
+- Larger and more balanced technology-job datasets.
+- More detailed job-domain classification.
+- Larger human-labelled evaluation sets.
+- Multiple independent human annotators.
+- Contextual embeddings.
+- Technical-skill ontologies.
+- Required-versus-preferred qualification extraction.
+- Broader learning-resource recommendations.
+- Interactive resume and job-description input.
+- LLM-assisted explanations.
+- Resume improvement suggestions.
+- Cover-letter analysis.
+- A web interface.
+- Privacy-focused local document processing.
+
+# Project Highlights
+
+- Built an end-to-end Python/NLP pipeline across **93 CS-related technology jobs, 100 public IT resumes, and 93 SFU Computing courses**.
+- Designed an interpretable technical-skill extraction system using a curated skill dictionary and rule-based phrase matching.
+- Implemented and compared a keyword-overlap baseline with a shared TF-IDF gap model.
+- Evaluated both approaches using **20 manually labelled held-out resume–job pairs**.
+- Converted resume–job gap vectors into ranked course recommendations.
+- Built reproducible exploratory, statistical, and visualization workflows using pandas, NumPy, SciPy, scikit-learn, Matplotlib, and Seaborn.
+- Added a single `main.py` entry point for reproducible end-to-end execution.
+
+# Resume Project Summary
+
+**OptiMatch v1 — Resume–Job Skill Gap Analyzer**
+
+Built a reproducible Python/NLP skill-gap analysis pipeline across **93 CS-related technology jobs, 100 public IT resumes, and 93 SFU Computing courses**, evaluating keyword-overlap and TF-IDF models on **20 manually labelled held-out resume–job pairs** and translating detected skill gaps into ranked learning recommendations.
 ---
 
 ## OptiMatchv2: Interactive LLM Resume Matcher

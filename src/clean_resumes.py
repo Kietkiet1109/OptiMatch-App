@@ -1,8 +1,6 @@
 import html
-import re
 import pandas as pd
 from extract_skills import get_skill_pattern, extract_skills
-
 
 # Define input and output file paths
 inputfile = '../data/raw/resumes.csv'

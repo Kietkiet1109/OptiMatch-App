@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import shelve
 
-
 url = 'https://www.sfu.ca/students/calendar/2026/fall/courses/cmpt.html'
 datafile = '../data/raw/courses.shelf'
 outputfile = '../data/raw/courses.csv'

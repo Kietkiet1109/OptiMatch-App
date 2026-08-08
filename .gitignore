@@ -33,16 +33,25 @@ data/raw/*
 data/processed/*
 data/external/*
 data/evaluation/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/external/.gitkeep
-!data/evaluation/human_labels.csv
 
 # Generated outputs
-outputs/*
+outputs/evaluation/*
+outputs/features/*
+outputs/gaps/*
+outputs/recommendations/*
+outputs/tables/*
 figures/*
-!outputs/.gitkeep
+
+# Excluded
+!data/raw/*
+!data/evaluation/human_labels.csv
+!data/processed/.gitkeep
 !figures/.gitkeep
+!outputs/evaluation/.gitkeep
+!outputs/features/.gitkeep
+!outputs/gaps/.gitkeep
+!outputs/recommendations/.gitkeep
+!outputs/tables/.gitkeep
 
 # Model artifacts
 *.joblib

@@ -1,7 +1,6 @@
 import html
 import pandas as pd
 
-
 # Define input and output file paths
 inputfile = '../data/raw/courses.csv'
 outputfile = '../data/processed/courses_clean.csv'
