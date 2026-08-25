@@ -641,7 +641,7 @@ data/evaluation/human_labels.csv
 Run the complete modelling pipeline with:
 
 ```bash
-python src/main.py
+python backend/main.py
 ```
 
 `main.py` executes:
@@ -1369,7 +1369,7 @@ Never commit `.env` files or API keys.
 ## Run OptiMatchv1
 
 ```bash
-python versions/OptiMatchv1/src/calculate_gaps.py \
+python versions/OptiMatchv1/backend/calculate_gaps.py \
   --resume sample_data/synthetic_resume.txt \
   --job sample_data/synthetic_job_description.txt
 ```
@@ -1377,26 +1377,71 @@ python versions/OptiMatchv1/src/calculate_gaps.py \
 Generate SFU course recommendations:
 
 ```bash
-python versions/OptiMatchv1/src/recommend_courses.py \
+python versions/OptiMatchv1/backend/recommend_courses.py \
   --gap-file outputs/gap_result.json \
   --top-k 5
 ```
 
 ## Run OptiMatchv2
 
-Start the backend:
+OptiMatchv2 currently contains the React TypeScript frontend shell for Phase 1 and Phase 2. The current frontend uses a fake analysis response, so a backend or LLM API key is not required to run the interface locally.
+
+### Prerequisites
+
+Install the following software before starting:
+
+- Node.js 20 or later.
+- npm, which is included with Node.js.
+
+### Start the frontend locally
+
+From the repository root, open a terminal and move into the frontend directory:
 
 ```bash
-uvicorn versions.OptiMatchv2.backend.main:app --reload
+cd frontend
 ```
 
-Start the frontend:
+Install the frontend dependencies:
 
 ```bash
-cd versions/OptiMatchv2/frontend
 npm install
+```
+
+Start the Vite development server:
+
+```bash
 npm run dev
 ```
+
+Open the local URL shown in the terminal. The default URL is:
+
+```text
+http://localhost:5173
+```
+
+### Test the Phase 2 interface
+
+Verify the following workflow:
+
+1. Upload a PDF resume.
+2. Confirm that non-PDF files are rejected.
+3. Confirm that files larger than 5 MB are rejected.
+4. Paste a job description containing at least 80 characters.
+5. Select **Analyze my alignment**.
+6. Confirm that the loading state appears.
+7. Confirm that the fake results page appears.
+8. Confirm that the score, matching skills, missing skills, evidence, recommendations, and limitations are displayed.
+9. Select **Start over** and confirm that the temporary result is removed.
+
+### Verify a production build
+
+Stop the development server if necessary, then run:
+
+```bash
+npm run build
+```
+
+The build should complete without TypeScript or Vite errors. The generated production files are written to `frontend/dist/`.
 
 ## Run OptiMatchv3
 
@@ -1587,20 +1632,20 @@ Additional measurable criteria may include:
 
 ### Phase 1: Complete OptiMatchv1
 
-- [ ] Collect job-posting data.
-- [ ] Collect SFU course descriptions.
-- [ ] Import and inspect the public resume dataset.
-- [ ] Build the cleaning pipeline.
-- [ ] Build the skill dictionary.
-- [ ] Implement the baseline model.
-- [ ] Implement TF-IDF matching.
-- [ ] Implement course recommendation.
-- [ ] Evaluate the model.
-- [ ] Publish reproducible results.
+- [X] Collect job-posting data.
+- [X] Collect SFU course descriptions.
+- [X] Import and inspect the public resume dataset.
+- [X] Build the cleaning pipeline.
+- [X] Build the skill dictionary.
+- [X] Implement the baseline model.
+- [X] Implement TF-IDF matching.
+- [X] Implement course recommendation.
+- [X] Evaluate the model.
+- [X] Publish reproducible results.
 
 ### Phase 2: Build OptiMatchv2
 
-- [ ] Create resume and job-description input interfaces.
+- [X] Create resume and job-description input interfaces.
 - [ ] Add document parsing.
 - [ ] Define structured LLM output schemas.
 - [ ] Integrate deterministic scores with LLM explanations.
