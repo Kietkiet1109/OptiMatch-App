@@ -10,7 +10,6 @@ from extract_skills import get_skill_set
 jobs_file = '../data/processed/jobs_clean.csv'
 baseline_file = '../outputs/tables/baseline_results.csv'
 metadata_file = '../outputs/features/feature_metadata.csv'
-tech_skills_file = '../config/technical_skills.json'
 vectorizer_file = '../outputs/features/tfidf_vectorizer.pkl'
 development_file = '../outputs/features/development_jobs_tfidf.npz'
 evaluation_file = '../outputs/features/evaluation_jobs_tfidf.npz'
