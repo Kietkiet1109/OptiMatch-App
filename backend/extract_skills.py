@@ -1,25 +1,24 @@
-import json
+import pandas as pd
 import re
+from pathlib import Path
 
-
-# Define configuration paths
-tech_skills_file = '../config/tech_skills.json'
-skill_aliases_file = '../config/skill_aliases.json'
-role_domains_file = '../config/role_domains.json'
-
+# Define configuration files
+configuration_path = Path(__file__).resolve().parent.parent
+tech_skills_file = str(configuration_path / 'config' / 'tech_skills.json')
+skill_aliases_file = str(configuration_path / 'config' / 'skill_aliases.json')
+role_domains_file = str(configuration_path / 'config' / 'role_domains.json')
 
 # Read the configuration files and flatten the categorized skill dictionary.
 def load_configuration():
-    with tech_skills_file.open(encoding='utf-8') as file:
-        technical_skills = json.load(file)
-    with skill_aliases_file.open(encoding='utf-8') as file:
-        skill_aliases = json.load(file)
-    with role_domains_file.open(encoding='utf-8') as file:
-        role_domains = json.load(file)
-    skill_names = {normalize_term(skill) for group in technical_skills.values() for skill in group}
+    tech_skills = pd.read_json(tech_skills_file, typ='series').to_dict()
+    skill_aliases = pd.read_json(skill_aliases_file, typ='series').to_dict()
+    role_domains = pd.read_json(role_domains_file, typ='series').to_dict()
+    skill_names = {normalize_term(skill) for group in tech_skills.values() for skill in group}
     canonical_names = {skill: skill for skill in skill_names}
+
     for alias, canonical_name in skill_aliases.items():
         canonical_names[normalize_term(alias)] = canonical_name.casefold()
+
     return canonical_names, role_domains
 
 

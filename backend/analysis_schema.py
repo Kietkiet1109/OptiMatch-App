@@ -1,3 +1,8 @@
+try:
+    from .parse_job import parse_job_description
+except ImportError:
+    from parse_job import parse_job_description
+
 # Store the minimum score, machine value, and display label for each band.
 compatibility_bands = [
     (80, 'strong_alignment', 'Strong alignment'),
@@ -5,7 +10,6 @@ compatibility_bands = [
     (40, 'needs_improvement', 'Needs improvement'),
     (0, 'low_alignment', 'Low alignment')
 ]
-
 
 # Function to return validation errors for one analysis input
 def validate_analysis_input(analysis_input):
@@ -87,7 +91,8 @@ def build_analysis_result(
         confidence,
         limitations,
         evidence_strength=50,
-        formatting_quality=100):
+        formatting_quality=100,
+        job_description_structure=None):
 
     # Stop before scoring when the submitted input is invalid.
     validation_errors = validate_analysis_input(analysis_input)
@@ -97,6 +102,13 @@ def build_analysis_result(
             'status': 'invalid_input',
             'errors': validation_errors
         }
+
+    # Parse the job description once so later phases receive typed requirements.
+    if job_description_structure is None:
+        job_description_structure = parse_job_description(
+            analysis_input['job_description_text'],
+            analysis_input.get('target_role_title')
+        )
 
     # Calculate overall, required, and preferred skill coverage.
     technical_skill_coverage = calculate_coverage(skill_matches)
@@ -174,6 +186,7 @@ def build_analysis_result(
         'missing_preferred_skills': missing_preferred_skills,
         'resume_evidence': resume_evidence,
         'job_description_evidence': job_description_evidence,
+        'job_description_structure': job_description_structure,
         'formatting_risks': formatting_risks,
         'recommendations': recommendations,
         'confidence': confidence,
