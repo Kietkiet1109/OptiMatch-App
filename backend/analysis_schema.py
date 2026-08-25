@@ -93,7 +93,7 @@ def build_analysis_result(
     validation_errors = validate_analysis_input(analysis_input)
     if validation_errors:
         return {
-            'schema_version': 'optimatch.v2.analysis.0',
+            'schema_version': 'optimatch.analysis',
             'status': 'invalid_input',
             'errors': validation_errors
         }
@@ -107,7 +107,7 @@ def build_analysis_result(
         skill_matches, 'preferred'
     )
 
-    # Add each available score component using the Phase 0 weights.
+    # Add each available score component using the weights.
     score_parts = []
     if required_skill_coverage is not None:
         score_parts.append((required_skill_coverage, 40))
@@ -150,9 +150,9 @@ def build_analysis_result(
         if skill.get('match_status') in ('matched', 'partially_matched')
     ]
 
-    # Return the stable Phase 0 result schema for the user interface or API.
+    # Return the stable result schema for the user interface or API.
     return {
-        'schema_version': 'optimatch.v2.analysis.0',
+        'schema_version': 'optimatch.analysis',
         'status': 'completed',
         'label': 'OptiMatch compatibility estimate',
         'overall_score': {
