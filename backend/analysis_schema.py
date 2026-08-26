@@ -1,7 +1,9 @@
 try:
     from .parse_job import parse_job_description
+    from .scoring_engine import calculate_deterministic_score
 except ImportError:
     from parse_job import parse_job_description
+    from scoring_engine import calculate_deterministic_score
 
 # Store the minimum score, machine value, and display label for each band.
 compatibility_bands = [
@@ -92,7 +94,10 @@ def build_analysis_result(
         limitations,
         evidence_strength=50,
         formatting_quality=100,
-        job_description_structure=None):
+        job_description_structure=None,
+        experience_alignment=None,
+        education_alignment=None,
+        formatting_risk=None):
 
     # Stop before scoring when the submitted input is invalid.
     validation_errors = validate_analysis_input(analysis_input)
@@ -110,32 +115,20 @@ def build_analysis_result(
             analysis_input.get('target_role_title')
         )
 
-    # Calculate overall, required, and preferred skill coverage.
-    technical_skill_coverage = calculate_coverage(skill_matches)
-    required_skill_coverage = calculate_coverage(
-        skill_matches, 'required'
+    # Calculate all metrics with fixed weights and traceable evidence.
+    if formatting_risk is None and not formatting_risks:
+        formatting_risk = max(0, min(100, 100 - formatting_quality))
+    deterministic_score = calculate_deterministic_score(
+        skill_matches,
+        evidence_strength if experience_alignment is None else experience_alignment,
+        0 if education_alignment is None else education_alignment,
+        formatting_risk,
+        formatting_risks
     )
-    preferred_skill_coverage = calculate_coverage(
-        skill_matches, 'preferred'
-    )
-
-    # Add each available score component using the weights.
-    score_parts = []
-    if required_skill_coverage is not None:
-        score_parts.append((required_skill_coverage, 40))
-    if technical_skill_coverage is not None:
-        score_parts.append((technical_skill_coverage, 25))
-    if preferred_skill_coverage is not None:
-        score_parts.append((preferred_skill_coverage, 15))
-    score_parts.append((max(0, min(100, evidence_strength)), 10))
-    score_parts.append((max(0, min(100, formatting_quality)), 10))
-
-    # Normalize the score when a category, such as preferred skills, is absent.
-    total_weight = sum(weight for value, weight in score_parts)
-    overall_score = round(
-        sum(value * weight for value, weight in score_parts) / total_weight,
-        2
-    )
+    technical_skill_coverage = deterministic_score['technical_skill_coverage']
+    required_skill_coverage = deterministic_score['required_skill_coverage']
+    preferred_skill_coverage = deterministic_score['preferred_skill_coverage']
+    overall_score = deterministic_score['overall_score']
 
     # Select the first compatibility band whose threshold is satisfied.
     compatibility_band = compatibility_bands[-1]
@@ -144,23 +137,10 @@ def build_analysis_result(
             compatibility_band = band
             break
 
-    # Separate skills that are explicitly missing from required qualifications.
-    missing_required_skills = [
-        skill for skill in skill_matches
-        if skill.get('requirement_type') == 'required'
-        and skill.get('match_status') == 'not_detected'
-    ]
-    # Separate skills that are explicitly missing from preferred qualifications.
-    missing_preferred_skills = [
-        skill for skill in skill_matches
-        if skill.get('requirement_type') == 'preferred'
-        and skill.get('match_status') == 'not_detected'
-    ]
-    # Keep both complete and partial matches as matching skills.
-    matching_skills = [
-        skill for skill in skill_matches
-        if skill.get('match_status') in ('matched', 'partially_matched')
-    ]
+    # Reuse the engine's evidence-based skill lists in the public result.
+    missing_required_skills = deterministic_score['missing_required_skills']
+    missing_preferred_skills = deterministic_score['missing_preferred_skills']
+    matching_skills = deterministic_score['matching_skills']
 
     # Return the stable result schema for the user interface or API.
     return {
@@ -172,6 +152,7 @@ def build_analysis_result(
             'scale': 100,
             'band': compatibility_band[1]
         },
+        'scoring': deterministic_score,
         'compatibility_band': {
             'value': compatibility_band[1],
             'label': compatibility_band[2]
@@ -181,6 +162,16 @@ def build_analysis_result(
             'required_skill_coverage': required_skill_coverage,
             'preferred_skill_coverage': preferred_skill_coverage
         },
+        'shared_skill_count': deterministic_score['shared_skill_count'],
+        'missing_required_skill_count': deterministic_score[
+            'missing_required_skill_count'
+        ],
+        'missing_preferred_skill_count': deterministic_score[
+            'missing_preferred_skill_count'
+        ],
+        'experience_alignment': deterministic_score['experience_alignment'],
+        'education_alignment': deterministic_score['education_alignment'],
+        'formatting_risk': deterministic_score['formatting_risk'],
         'matching_skills': matching_skills,
         'missing_required_skills': missing_required_skills,
         'missing_preferred_skills': missing_preferred_skills,
