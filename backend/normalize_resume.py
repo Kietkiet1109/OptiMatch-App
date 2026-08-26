@@ -1,5 +1,3 @@
-'''Normalize extracted resume text without saving the original document.'''
-
 from dataclasses import dataclass
 import re
 import unicodedata

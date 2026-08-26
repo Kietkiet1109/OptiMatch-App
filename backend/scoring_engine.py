@@ -73,12 +73,10 @@ def calculate_formatting_risk(formatting_risks):
 
 
 # Produce every metric, its weighted contribution, and its supporting evidence
-def calculate_deterministic_score(
-        skill_matches,
-        experience_alignment=0,
-        education_alignment=0,
-        formatting_risk=None,
-        formatting_risks=None):
+def calculate_deterministic_score(skill_matches, experience_alignment = 0,
+                                  education_alignment = 0, formatting_risk = None,
+                                  formatting_risks = None):
+
     technical_coverage, technical_evidence = calculate_skill_component(skill_matches)
     required_coverage, required_evidence = calculate_skill_component(
         skill_matches, 'required'

@@ -62,7 +62,7 @@ def extract_skills(text, skill_pattern=None):
 
 
 # Extract every detected skill with source, section, evidence, location, and confidence.
-def extract_skill_evidence(text, source_document='document', section=None, page=None):
+def extract_skill_evidence(text, source_document = 'document', section = None, page = None):
     value = '' if text is None else str(text)
     canonical_names, role_domains = load_configuration()
     pattern = build_pattern(canonical_names)

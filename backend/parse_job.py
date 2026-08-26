@@ -106,7 +106,7 @@ def build_classified_record(name, record_type, requirement_type, evidence):
 
 
 # Parse a job description into stable fields used by matching and later scoring phases.
-def parse_job_description(text, job_title=None, company=None):
+def parse_job_description(text, job_title = None, company = None):
     value = '' if text is None else str(text)
     sections = split_sections(value)
     lines = [line for section_lines in sections.values() for line in section_lines]

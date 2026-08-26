@@ -56,12 +56,8 @@ def extract_pdf_text(pdf_path: Path):
 
 
 # Process a resume temporarily and delete the file on success or failure
-def process_temporary_resume(
-    content: bytes,
-    analyzer: Callable[[NormalizedResume], Any],
-    *,
-    content_type: str | None = None,
-):
+def process_temporary_resume(content: bytes, analyzer: Callable[[NormalizedResume], Any],
+                             *, content_type: str | None = None):
 
     # Validate before parsing, logging, or writing the uploaded document.
     validate_resume_upload(content, content_type=content_type)
