@@ -1,8 +1,10 @@
 try:
     from .parse_job import parse_job_description
+    from .recommend_engine import generate_recommendations
     from .scoring_engine import calculate_deterministic_score
 except ImportError:
     from parse_job import parse_job_description
+    from recommend_engine import generate_recommendations
     from scoring_engine import calculate_deterministic_score
 
 # Store the minimum score, machine value, and display label for each band.
@@ -141,6 +143,14 @@ def build_analysis_result(
     missing_required_skills = deterministic_score['missing_required_skills']
     missing_preferred_skills = deterministic_score['missing_preferred_skills']
     matching_skills = deterministic_score['matching_skills']
+
+    # Generate Phase 10 actions only when an earlier phase did not provide recommendations.
+    if not recommendations:
+        recommendations = generate_recommendations(
+            skill_matches,
+            resume_evidence=resume_evidence,
+            job_evidence=job_description_evidence
+        )
 
     # Return the stable result schema for the user interface or API.
     return {
