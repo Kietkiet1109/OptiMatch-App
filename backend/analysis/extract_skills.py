@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 # Define configuration files
-configuration_path = Path(__file__).resolve().parent.parent
+configuration_path = Path(__file__).resolve().parents[2]
 tech_skills_file = str(configuration_path / 'config' / 'tech_skills.json')
 skill_aliases_file = str(configuration_path / 'config' / 'skill_aliases.json')
 role_domains_file = str(configuration_path / 'config' / 'role_domains.json')

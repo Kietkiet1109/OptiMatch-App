@@ -1,4 +1,4 @@
-from backend.parse_job import parse_job_description
+from backend.analysis.parse_job import parse_job_description
 
 # Verify that explicit required and preferred language controls technical weights.
 def test_parse_job_description_separates_requirement_weights():
@@ -49,6 +49,55 @@ def test_parse_job_description_classifies_aliases_from_their_detected_line():
     skills = {skill['name']: skill for skill in result['technical_skills']}
     assert skills['machine learning']['requirement_type'] == 'required'
     assert skills['natural language processing']['requirement_type'] == 'preferred'
+
+
+# Verify logical connectors create one requirement group instead of separate gaps.
+def test_parse_job_description_builds_and_or_requirement_groups():
+    result = parse_job_description('''
+    Required Skills:
+    - Python and SQL
+    Preferred Skills:
+    - PyTorch, TensorFlow, or scikit-learn
+    - Python or Java and SQL
+    ''')
+
+    groups = result['requirement_groups']
+    assert groups[0]['operator'] == 'and'
+    assert groups[0]['alternatives'] == ['python', 'sql']
+    assert groups[1]['operator'] == 'or'
+    assert groups[1]['alternatives'] == ['pytorch', 'tensorflow', 'scikit-learn']
+    assert groups[2]['operator'] == 'ambiguous'
+    assert groups[2]['is_ambiguous'] is True
+
+
+# Verify education alternatives remain separate from technical skill groups.
+def test_parse_job_description_builds_education_alternative_groups():
+    result = parse_job_description('''
+    Required Qualifications:
+    - Degree in Computer Science, Machine Learning, or Data Science
+    ''')
+
+    group = result['requirement_groups'][0]
+    assert group['category'] == 'education'
+    assert group['operator'] == 'or'
+    assert group['requirement_type'] == 'required'
+
+
+# Verify experience alternatives are represented as a bounded range.
+def test_parse_job_description_handles_or_experience_ranges():
+    result = parse_job_description('1 or 2 years of experience required')
+
+    assert result['years_experience'][0]['minimum_years'] == 1
+    assert result['years_experience'][0]['maximum_years'] == 2
+
+
+# Verify and/or is treated as an at-least-one alternative without ambiguity.
+def test_parse_job_description_handles_and_or_connector():
+    result = parse_job_description('Preferred Skills:\n- Python and/or Java')
+
+    group = result['requirement_groups'][0]
+    assert group['operator'] == 'or'
+    assert group['is_ambiguous'] is False
 
 
 # Verify the parser handles nested headings and the supplied multi-style job posting.

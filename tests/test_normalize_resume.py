@@ -1,5 +1,4 @@
-from backend.normalize_resume import normalize_resume_text
-
+from backend.analysis.normalize_resume import normalize_resume_text
 
 # Ensure privacy masking, section detection, and technical punctuation preservation.
 def test_resume_normalizer_preserves_technical_terms():

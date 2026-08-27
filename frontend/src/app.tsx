@@ -54,12 +54,12 @@ type analysis_result = {
         required_skill_coverage: number;
         preferred_skill_coverage: number;
     };
-    matching_skills: {skill: string}[];
-    matched_required_skills: {skill: string}[];
-    matched_preferred_skills: {skill: string}[];
-    matched_general_skills: {skill: string}[];
-    missing_required_skills: {skill: string}[];
-    missing_preferred_skills: {skill: string}[];
+    matching_skills: skill_match[];
+    matched_required_skills: skill_match[];
+    matched_preferred_skills: skill_match[];
+    matched_general_skills: skill_match[];
+    missing_required_skills: skill_match[];
+    missing_preferred_skills: skill_match[];
     resume_evidence: {normalized_skill_name?: string; text_evidence?: string}[];
     job_description_evidence: {skill?: string; text_evidence?: string}[];
     formatting_risks: {issue: string; severity: string}[];
@@ -76,6 +76,13 @@ type analysis_result = {
         detected_preferred_count: number;
         warning: string | null;
     };
+};
+
+// Store one explainable skill match, including alternatives when a requirement allows them.
+type skill_match = {
+    skill: string;
+    alternatives?: string[];
+    matched_alternatives?: string[];
 };
 
 // Store the product limits in one place
@@ -233,8 +240,8 @@ const results_view = ({analysis_result, resume_file, on_start_over }: { analysis
         <div className='results_header'><div><p className='eyebrow'>Analysis complete</p><h1>Your alignment overview</h1><p className='hero_description'>{resume_file?.name} · Temporary result</p></div><button type='button' className='secondary_button plain_button' onClick={on_start_over}>Start over</button></div>
         <div className='score_card'><div className='score_ring'><strong>{analysis_result.overall_score.value ?? '—'}</strong><span>{analysis_result.overall_score.value === null ? 'not scored' : `/ ${analysis_result.overall_score.scale}`}</span></div><div><p className='eyebrow'>{analysis_result.label}</p><h2>{analysis_result.compatibility_band.label}</h2><p className='muted_text'>{analysis_result.skill_match_status === 'zero_match' ? 'Skills were detected in both documents, but none matched exactly or through a configured alias.' : analysis_result.analysis_status === 'scored' ? 'This score combines required skills, technical skills, evidence alignment, and formatting quality.' : 'No reliable compatibility score was calculated because the available skill evidence was incomplete.'}</p></div></div>
         <div className='metric_grid'>{createElement(metric_card, { label: 'Required skills', value: `${analysis_result.coverage.required_skill_coverage}%` })}{createElement(metric_card, { label: 'Technical skills', value: `${analysis_result.coverage.technical_skill_coverage}%` })}{createElement(metric_card, { label: 'Formatting risk', value: `${analysis_result.formatting_risk}%` })}</div>
-        <div className='result_grid'>{createElement(result_list, { title: 'Matched required skills', items: analysis_result.matched_required_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing required skills', items: analysis_result.missing_required_skills.map((skill) => skill.skill), item_class: 'missing_item' })}{createElement(result_list, { title: 'Matched preferred skills', items: analysis_result.matched_preferred_skills.map((skill) => skill.skill), item_class: 'preferred_item' })}</div>
-        <div className='result_grid'>{createElement(result_list, { title: 'Matched general skills', items: analysis_result.matched_general_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing preferred skills', items: analysis_result.missing_preferred_skills.map((skill) => skill.skill), item_class: 'preferred_item' })}{createElement(result_list, { title: 'All matched skills', items: analysis_result.matching_skills.map((skill) => skill.skill), item_class: 'match_item' })}</div>
+        <div className='result_grid'>{createElement(result_list, { title: 'Matched required skills', items: analysis_result.matched_required_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing required skills', items: analysis_result.missing_required_skills.map((skill) => skill.alternatives?.length ? skill.alternatives.join(' or ') : skill.skill), item_class: 'missing_item' })}{createElement(result_list, { title: 'Matched preferred skills', items: analysis_result.matched_preferred_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'preferred_item' })}</div>
+        <div className='result_grid'>{createElement(result_list, { title: 'Matched general skills', items: analysis_result.matched_general_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing preferred skills', items: analysis_result.missing_preferred_skills.map((skill) => skill.alternatives?.length ? skill.alternatives.join(' or ') : skill.skill), item_class: 'preferred_item' })}{createElement(result_list, { title: 'All matched skills', items: analysis_result.matching_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'match_item' })}</div>
         <div className='evidence_card'><p className='eyebrow'>Detected skills</p><p><strong>Resume:</strong> {analysis_result.detected_resume_skills.length ? analysis_result.detected_resume_skills.join(', ') : 'No skills detected'}</p><p><strong>Job description:</strong> {analysis_result.detected_job_skills.length ? analysis_result.detected_job_skills.map((skill) => typeof skill === 'string' ? skill : skill.skill).join(', ') : 'No skills detected'}</p></div>
         <div className='evidence_card'><p className='eyebrow'>Extraction coverage</p><p><strong>Detected job skills:</strong> {analysis_result.extraction_coverage.detected_job_skill_count}</p><p><strong>Required requirements:</strong> {analysis_result.extraction_coverage.detected_required_count}</p><p><strong>Preferred requirements:</strong> {analysis_result.extraction_coverage.detected_preferred_count}</p>{analysis_result.extraction_coverage.warning && <p className='muted_text'>{analysis_result.extraction_coverage.warning}</p>}</div>
         <div className='evidence_card'><p className='eyebrow'>Matching skills evidence</p><ul>{analysis_result.resume_evidence.map((evidence, index) => <li key={`${evidence.normalized_skill_name}-${index}`}><strong>{evidence.normalized_skill_name}:</strong> {evidence.text_evidence}</li>)}</ul></div>

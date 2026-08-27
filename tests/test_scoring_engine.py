@@ -1,5 +1,4 @@
-from backend.scoring_engine import calculate_deterministic_score
-
+from backend.analysis.scoring_engine import calculate_deterministic_score
 
 # Verify that the documented weights produce the expected deterministic total.
 def test_calculate_deterministic_score_uses_documented_weights():
@@ -68,7 +67,7 @@ def test_calculate_deterministic_score_derives_formatting_risk():
 
 # Verify that the analysis result exposes the same Phase 7 metrics publicly.
 def test_build_analysis_result_exposes_phase_7_metrics():
-    from backend.analysis_schema import build_analysis_result
+    from backend.analysis.analysis_schema import build_analysis_result
 
     result = build_analysis_result(
         {

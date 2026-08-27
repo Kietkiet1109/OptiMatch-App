@@ -4,12 +4,15 @@ import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from .analysis_schema import build_analysis_result
-from .extract_skills import extract_skill_evidence
-from .parse_job import parse_job_description
-from .recommend_engine import generate_learning_resources
-from .recommend_engine import generate_recommendations
-from .validate_resume import ResumeValidationError, process_temporary_resume
+
+from .analysis.analysis_schema import build_analysis_result
+from .analysis.extract_skills import extract_skill_evidence
+from .analysis.parse_job import parse_job_description
+from .analysis.validate_resume import ResumeValidationError, process_temporary_resume
+from .recommendation.recommend_engine import (
+    generate_learning_resources,
+    generate_recommendations,
+)
 
 # Load local environment settings without exposing secrets to the frontend
 load_dotenv()
@@ -133,8 +136,56 @@ def build_skill_matches(resume_text, parsed_job):
     # Keep the job skills visible so the result can distinguish extraction from matching.
     detected_job_skills = []
     skill_matches = []
+    requirement_groups = parsed_job.get('requirement_groups', [])
+    grouped_line_indexes = {
+        group['line_index'] for group in requirement_groups
+        if group.get('category') == 'technical_skill'
+    }
+    for group in requirement_groups:
+        if group.get('category') != 'technical_skill':
+            continue
+        alternatives = group['alternatives']
+        detected_job_skills.extend({
+            'skill': skill,
+            'requirement_type': group['requirement_type'],
+            'evidence': group['source_text'],
+        } for skill in alternatives)
+        matched_alternatives = [
+            skill for skill in alternatives if resume_by_skill.get(skill, [])
+        ]
+        if group['operator'] == 'or':
+            match_status = 'matched' if matched_alternatives else 'not_detected'
+        elif group['operator'] == 'and':
+            match_status = (
+                'matched' if len(matched_alternatives) == len(alternatives)
+                else 'partially_matched' if matched_alternatives
+                else 'not_detected'
+            )
+        else:
+            match_status = 'unclear'
+        resume_group_evidence = [
+            evidence
+            for skill in matched_alternatives
+            for evidence in resume_by_skill.get(skill, [])
+        ]
+        skill_matches.append({
+            'skill': matched_alternatives[0] if matched_alternatives else alternatives[0],
+            'normalized_skill_name': alternatives[0],
+            'skill_type': 'technical',
+            'requirement_type': group['requirement_type'],
+            'match_status': match_status,
+            'resume_evidence': resume_group_evidence,
+            'job_evidence': [{'text_evidence': group['source_text']}],
+            'requirement_group_id': group['group_id'],
+            'operator': group['operator'],
+            'alternatives': alternatives,
+            'matched_alternatives': matched_alternatives,
+            'alternative_evidence': group['evidence'],
+        })
     for group_name in ('technical_skills', 'soft_skills'):
         for job_skill in parsed_job.get(group_name, []):
+            if job_skill.get('line_index') in grouped_line_indexes:
+                continue
             skill_name = job_skill['name']
             matched_evidence = resume_by_skill.get(skill_name.casefold(), [])
             detected_job_skills.append({

@@ -1,11 +1,6 @@
-try:
-    from .parse_job import parse_job_description
-    from .recommend_engine import generate_recommendations
-    from .scoring_engine import calculate_deterministic_score
-except ImportError:
-    from parse_job import parse_job_description
-    from recommend_engine import generate_recommendations
-    from scoring_engine import calculate_deterministic_score
+from .parse_job import parse_job_description
+from .scoring_engine import calculate_deterministic_score
+from ..recommendation.recommend_engine import generate_recommendations
 
 # Store the minimum score, machine value, and display label for each band.
 compatibility_bands = [
@@ -225,6 +220,9 @@ def build_analysis_result(
         'detected_job_skills': detected_job_skills or [
             skill['skill'] for skill in skill_matches
         ],
+        'requirement_groups': job_description_structure.get(
+            'requirement_groups', []
+        ),
         'extraction_coverage': {
             'status': extraction_coverage,
             'detected_job_skill_count': detected_job_skill_count,

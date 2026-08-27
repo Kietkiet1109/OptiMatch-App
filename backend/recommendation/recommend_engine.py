@@ -300,6 +300,9 @@ def generate_recommendations(skill_matches, resume_evidence=None, job_evidence=N
     # Convert only required technical gaps into stable recommendation records
     for skill_match in skill_matches:
         skill_name = read_skill_name(skill_match)
+        alternatives = skill_match.get('alternatives', []) if isinstance(skill_match, dict) else []
+        if alternatives and skill_match.get('operator') == 'or':
+            skill_name = ' or '.join(alternatives)
         if not skill_name:
             continue
         evidence_status = classify_evidence_status(

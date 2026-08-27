@@ -1,6 +1,5 @@
-from backend.recommend_engine import generate_learning_resources
-from backend.recommend_engine import generate_recommendations
-
+from backend.recommendation.recommend_engine import generate_learning_resources
+from backend.recommendation.recommend_engine import generate_recommendations
 
 # Verify that only missing required technical skills become learning recommendations.
 def test_generate_recommendations_filters_to_required_technical_gaps():
@@ -53,6 +52,24 @@ def test_generate_recommendations_handles_weak_required_technical_evidence():
 
     assert recommendations[0]['recommendation_type'] == 'learning_and_evidence'
     assert 'limited evidence' in recommendations[0]['why_it_matters']
+
+
+# Verify alternatives are recommended as one choice rather than separate missing skills.
+def test_generate_recommendations_keeps_or_alternatives_together():
+    recommendations = generate_recommendations([
+        {
+            'skill': 'pytorch',
+            'skill_type': 'technical',
+            'requirement_type': 'required',
+            'match_status': 'not_detected',
+            'operator': 'or',
+            'alternatives': ['pytorch', 'tensorflow'],
+            'job_evidence': [{'text_evidence': 'PyTorch or TensorFlow experience.'}],
+        }
+    ])
+
+    assert len(recommendations) == 1
+    assert recommendations[0]['skill'] == 'pytorch or tensorflow'
 
 
 # Verify that the chatbot receives only deterministic required technical gaps.

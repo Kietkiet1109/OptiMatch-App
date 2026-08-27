@@ -1,7 +1,6 @@
-from backend.analysis_schema import build_analysis_result
-from backend.analysis_schema import calculate_coverage
-from backend.analysis_schema import validate_analysis_input
-
+from backend.analysis.analysis_schema import build_analysis_result
+from backend.analysis.analysis_schema import calculate_coverage
+from backend.analysis.analysis_schema import validate_analysis_input
 
 # Verify that a valid PDF and job description pass input validation.
 def test_validate_analysis_input_accepts_pdf_and_job_text():

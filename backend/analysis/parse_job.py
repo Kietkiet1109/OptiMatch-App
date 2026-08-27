@@ -1,8 +1,5 @@
 import re
-try:
-    from .extract_skills import extract_skill_evidence
-except ImportError:
-    from extract_skills import extract_skill_evidence
+from .extract_skills import extract_skill_evidence
 
 # Store deterministic labels that separate scoring importance from ordinary keywords.
 requirement_weights = {
@@ -128,6 +125,53 @@ def build_classified_record(name, record_type, requirement_type, evidence):
     }
 
 
+# Group skills from one requirement sentence so alternatives are scored once.
+def build_requirement_groups(original_value, normalized_value, line_sections, skill_evidence):
+    original_lines = original_value.splitlines()
+    normalized_lines = normalized_value.splitlines()
+    grouped_lines = {}
+    for evidence in skill_evidence:
+        line_index = original_value.count('\n', 0, evidence['character_start'])
+        if line_index < len(normalized_lines):
+            grouped_lines.setdefault(line_index, []).append(evidence)
+
+    requirement_groups = []
+    for line_index, evidence_values in grouped_lines.items():
+        skill_names = list(dict.fromkeys(
+            evidence['normalized_skill_name'] for evidence in evidence_values
+        ))
+        source_text = original_lines[line_index].strip()
+        source_value = source_text.casefold()
+        if len(skill_names) < 2:
+            continue
+        has_or = bool(re.search(
+            r'\b(or|either|any of|similar)\b', source_value
+        ))
+        has_and = bool(re.search(r'\band\b', source_value))
+        is_ambiguous = has_or and has_and and 'and/or' not in source_value
+        operator = 'or' if has_or else 'and'
+        if is_ambiguous:
+            operator = 'ambiguous'
+        section = line_sections.get(line_index, 'general')
+        requirement_groups.append({
+            'group_id': f'job_skill_group_{line_index}',
+            'source_text': source_text,
+            'alternatives': skill_names,
+            'category': 'education' if re.search(
+                r'\b(degree|pursuing|coursework|academic|major)\b',
+                source_value
+            ) else 'technical_skill',
+            'requirement_type': classify_requirement(source_text, section),
+            'operator': operator,
+            'is_ambiguous': is_ambiguous,
+            'line_index': line_index,
+            'evidence': [
+                evidence['text_evidence'] for evidence in evidence_values
+            ]
+        })
+    return requirement_groups
+
+
 # Parse a job description into stable fields used by matching and later scoring phases.
 def parse_job_description(text, job_title = None, company = None):
     original_value = '' if text is None else str(text)
@@ -154,8 +198,9 @@ def parse_job_description(text, job_title = None, company = None):
 
     # Detect technical skills and classify each occurrence by its local evidence.
     technical_skills = []
-    for evidence in extract_skill_evidence(
-            original_value, source_document='job_description'):
+    technical_evidence = extract_skill_evidence(
+        original_value, source_document='job_description')
+    for evidence in technical_evidence:
         # Use the text that was actually detected so aliases inherit the correct section.
         line_index = original_value.count('\n', 0, evidence['character_start'])
         line = clean_line(normalized_lines[line_index]) if line_index < len(normalized_lines) else value
@@ -163,11 +208,17 @@ def parse_job_description(text, job_title = None, company = None):
         requirement_type = classify_requirement(
             line, section
         )
-        technical_skills.append(build_classified_record(
+        record = build_classified_record(
             evidence['normalized_skill_name'], 'technical_skill', requirement_type,
             evidence['text_evidence']
-        ))
+        )
+        record['line_index'] = line_index
+        if not re.search(r'\b(degree|pursuing|coursework|academic|major)\b', line, re.I):
+            technical_skills.append(record)
     technical_skills = list({record['name']: record for record in technical_skills}.values())
+    requirement_groups = build_requirement_groups(
+        original_value, value, line_sections, technical_evidence
+    )
 
     # Detect soft skills and explicitly give them a lower weight than technical skills.
     soft_skills = []
@@ -179,13 +230,15 @@ def parse_job_description(text, job_title = None, company = None):
             soft_line = clean_line(normalized_lines[line_index]) if line_index < len(normalized_lines) else value
             soft_section = line_sections.get(line_index, 'general')
             requirement_type = classify_requirement(soft_line, soft_section)
-            soft_skills.append(build_classified_record(
+            record = build_classified_record(
                 term, 'soft_skill', requirement_type, evidence
-            ))
+            )
+            record['line_index'] = line_index
+            soft_skills.append(record)
 
     # Extract years, education, certifications, work arrangement, seniority, and domain terms.
     experience_matches = re.findall(
-        r'(?i)(\d+)(?:\s*[-to]+\s*(\d+))?\s*\+?\s*years?[^.\n]{0,80}', value
+        r'(?i)(\d+)\s*(?:(?:-|to|or)\s*(\d+))?\s*\+?\s*years?[^.\n]{0,80}', value
     )
     years_experience = []
     for first_year, second_year in experience_matches:
@@ -233,5 +286,6 @@ def parse_job_description(text, job_title = None, company = None):
         'unclassified_text': sections.get('general', []),
         'workplace_requirements': workplace_requirements,
         'responsibility_evidence': responsibility_evidence,
-        'normalized_text': value
+        'normalized_text': value,
+        'requirement_groups': requirement_groups
     }

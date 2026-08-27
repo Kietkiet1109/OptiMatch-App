@@ -1,7 +1,6 @@
 from pathlib import Path
 import pytest
-from backend import validate_resume as workflow
-
+from backend.analysis import validate_resume as workflow
 
 # Ensure invalid input is rejected before the PDF parser is called.
 def test_invalid_resume_is_rejected_before_extraction(monkeypatch):
