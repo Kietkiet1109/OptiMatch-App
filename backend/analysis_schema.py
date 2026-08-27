@@ -99,7 +99,8 @@ def build_analysis_result(
         job_description_structure=None,
         experience_alignment=None,
         education_alignment=None,
-        formatting_risk=None):
+        formatting_risk=None,
+        detected_job_skills=None):
 
     # Stop before scoring when the submitted input is invalid.
     validation_errors = validate_analysis_input(analysis_input)
@@ -125,24 +126,49 @@ def build_analysis_result(
         evidence_strength if experience_alignment is None else experience_alignment,
         0 if education_alignment is None else education_alignment,
         formatting_risk,
-        formatting_risks
+        formatting_risks,
+        len(resume_evidence)
     )
     technical_skill_coverage = deterministic_score['technical_skill_coverage']
     required_skill_coverage = deterministic_score['required_skill_coverage']
     preferred_skill_coverage = deterministic_score['preferred_skill_coverage']
     overall_score = deterministic_score['overall_score']
+    analysis_status = deterministic_score['analysis_status']
 
-    # Select the first compatibility band whose threshold is satisfied.
+    # Select a clear evidence state before assigning a compatibility band.
     compatibility_band = compatibility_bands[-1]
-    for band in compatibility_bands:
-        if overall_score >= band[0]:
-            compatibility_band = band
-            break
+    if analysis_status == 'no_skills_detected':
+        compatibility_band = (0, 'no_skills_detected', 'No skills detected')
+    elif analysis_status == 'insufficient_evidence':
+        compatibility_band = (0, 'insufficient_evidence', 'Insufficient evidence')
+    else:
+        for band in compatibility_bands:
+            if overall_score >= band[0]:
+                compatibility_band = band
+                break
 
     # Reuse the engine's evidence-based skill lists in the public result.
     missing_required_skills = deterministic_score['missing_required_skills']
     missing_preferred_skills = deterministic_score['missing_preferred_skills']
     matching_skills = deterministic_score['matching_skills']
+    matched_required_skills = deterministic_score['matched_required_skills']
+    matched_preferred_skills = deterministic_score['matched_preferred_skills']
+    matched_general_skills = deterministic_score['matched_general_skills']
+    detected_job_skill_count = len(skill_matches)
+    detected_required_count = sum(
+        1 for skill in skill_matches
+        if skill.get('requirement_type') == 'required'
+    )
+    detected_preferred_count = sum(
+        1 for skill in skill_matches
+        if skill.get('requirement_type') == 'preferred'
+    )
+    extraction_coverage = (
+        'low'
+        if len(analysis_input['job_description_text'].strip()) >= 500
+        and detected_job_skill_count < 8
+        else 'available'
+    )
 
     # Generate Phase 10 actions only when an earlier phase did not provide recommendations.
     if not recommendations:
@@ -158,10 +184,12 @@ def build_analysis_result(
         'status': 'completed',
         'label': 'OptiMatch compatibility estimate',
         'overall_score': {
-            'value': overall_score,
+            'value': overall_score if analysis_status == 'scored' else None,
             'scale': 100,
             'band': compatibility_band[1]
         },
+        'analysis_status': analysis_status,
+        'skill_match_status': deterministic_score['skill_match_status'],
         'scoring': deterministic_score,
         'compatibility_band': {
             'value': compatibility_band[1],
@@ -183,15 +211,34 @@ def build_analysis_result(
         'education_alignment': deterministic_score['education_alignment'],
         'formatting_risk': deterministic_score['formatting_risk'],
         'matching_skills': matching_skills,
+        'matched_required_skills': matched_required_skills,
+        'matched_preferred_skills': matched_preferred_skills,
+        'matched_general_skills': matched_general_skills,
         'missing_required_skills': missing_required_skills,
         'missing_preferred_skills': missing_preferred_skills,
         'resume_evidence': resume_evidence,
         'job_description_evidence': job_description_evidence,
+        'detected_resume_skills': sorted({
+            evidence['normalized_skill_name'] for evidence in resume_evidence
+        }),
+        'detected_job_skills': detected_job_skills or [
+            skill['skill'] for skill in skill_matches
+        ],
+        'extraction_coverage': {
+            'status': extraction_coverage,
+            'detected_job_skill_count': detected_job_skill_count,
+            'detected_required_count': detected_required_count,
+            'detected_preferred_count': detected_preferred_count,
+            'warning': 'Technical score is based only on the skills successfully extracted from the job description.'
+            if extraction_coverage == 'low' else None
+        },
         'job_description_structure': job_description_structure,
         'formatting_risks': formatting_risks,
         'recommendations': recommendations,
         'confidence': confidence,
-        'limitations': limitations + [
+        'limitations': limitations + ([
+            'No comparable skills were detected. This is an analysis limitation, not evidence of incompatibility.'
+        ] if analysis_status != 'scored' else []) + [
             'This result is an OptiMatch compatibility estimate, not an official ATS score.',
             'A skill not detected in the resume may still be possessed by the applicant.'
         ],

@@ -64,7 +64,18 @@
         "machine learning",
         "deep learning",
         "data analysis",
-        "data science"
+        "data science",
+        "data structures",
+        "model evaluation",
+        "data pipelines",
+        "version control",
+        "api",
+        "cloud services",
+        "recommendation systems",
+        "search",
+        "ranking",
+        "reproducible experiments",
+        "model reliability"
     ],
     "tools": [
         "git",

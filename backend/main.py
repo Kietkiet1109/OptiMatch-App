@@ -27,19 +27,27 @@ def build_skill_matches(resume_text, parsed_job):
             evidence['normalized_skill_name'], []
         ).append(evidence)
 
+    # Keep the job skills visible so the result can distinguish extraction from matching.
+    detected_job_skills = []
     skill_matches = []
     for group_name in ('technical_skills', 'soft_skills'):
         for job_skill in parsed_job.get(group_name, []):
             skill_name = job_skill['name']
             matched_evidence = resume_by_skill.get(skill_name.casefold(), [])
+            detected_job_skills.append({
+                'skill': skill_name,
+                'requirement_type': job_skill['requirement_type'],
+                'evidence': job_skill['evidence'],
+            })
             skill_matches.append({
                 'skill': skill_name,
+                'normalized_skill_name': skill_name.casefold(),
                 'requirement_type': job_skill['requirement_type'],
                 'match_status': 'matched' if matched_evidence else 'not_detected',
                 'resume_evidence': matched_evidence,
                 'job_evidence': [{'text_evidence': job_skill['evidence']}],
             })
-    return skill_matches, resume_evidence
+    return skill_matches, resume_evidence, detected_job_skills
 
 
 # Add transparent formatting findings without treating them as hiring decisions
@@ -63,7 +71,7 @@ def analyze_resume(resume, job_description_text):
     parsed_job = parse_job_description(job_description_text)
 
     def analyze_normalized_resume(normalized_resume):
-        skill_matches, resume_evidence = build_skill_matches(
+        skill_matches, resume_evidence, detected_job_skills = build_skill_matches(
             normalized_resume.text,
             parsed_job
         )
@@ -82,7 +90,8 @@ def analyze_resume(resume, job_description_text):
             build_formatting_risks(normalized_resume),
             [],
             {'overall': 'deterministic'},
-            []
+            [],
+            detected_job_skills=detected_job_skills
         )
 
     return process_temporary_resume(

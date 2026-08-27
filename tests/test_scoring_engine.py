@@ -46,6 +46,8 @@ def test_calculate_deterministic_score_uses_documented_weights():
     assert result['components']['experience_alignment']['evidence'] == [
         'Five years of relevant experience.'
     ]
+    assert [skill['skill'] for skill in result['matched_required_skills']] == ['python']
+    assert [skill['skill'] for skill in result['matched_preferred_skills']] == ['aws']
 
 
 # Verify that formatting findings become a capped risk score when no score is supplied.

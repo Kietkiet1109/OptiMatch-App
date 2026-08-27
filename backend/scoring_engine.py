@@ -75,7 +75,7 @@ def calculate_formatting_risk(formatting_risks):
 # Produce every metric, its weighted contribution, and its supporting evidence
 def calculate_deterministic_score(skill_matches, experience_alignment = 0,
                                   education_alignment = 0, formatting_risk = None,
-                                  formatting_risks = None):
+                                  formatting_risks = None, resume_skill_count = None):
 
     technical_coverage, technical_evidence = calculate_skill_component(skill_matches)
     required_coverage, required_evidence = calculate_skill_component(
@@ -140,6 +140,19 @@ def calculate_deterministic_score(skill_matches, experience_alignment = 0,
         skill for skill in skill_matches
         if skill.get('match_status') in ('matched', 'partially_matched')
     ]
+    # Group matched evidence by the importance assigned by the job parser.
+    matched_required_skills = [
+        skill for skill in matching_skills
+        if skill.get('requirement_type') == 'required'
+    ]
+    matched_preferred_skills = [
+        skill for skill in matching_skills
+        if skill.get('requirement_type') == 'preferred'
+    ]
+    matched_general_skills = [
+        skill for skill in matching_skills
+        if skill.get('requirement_type') == 'general'
+    ]
     missing_required_skills = [
         skill for skill in skill_matches
         if skill.get('requirement_type') == 'required'
@@ -153,6 +166,24 @@ def calculate_deterministic_score(skill_matches, experience_alignment = 0,
     overall_score = round(
         sum(component['contribution'] for component in components.values()), 2
     )
+    # Mark skill evidence separately so missing extraction is not mistaken for a zero match.
+    if resume_skill_count is None:
+        resume_skill_count = sum(
+            1 for skill in skill_matches if skill.get('resume_evidence')
+        )
+    job_skill_count = len(skill_matches)
+    if not resume_skill_count and not job_skill_count:
+        analysis_status = 'no_skills_detected'
+    elif not resume_skill_count or not job_skill_count:
+        analysis_status = 'insufficient_evidence'
+    else:
+        analysis_status = 'scored'
+    # Separate a genuine zero skill match from a result with missing evidence.
+    skill_match_status = (
+        'zero_match'
+        if analysis_status == 'scored' and not matching_skills
+        else 'matched' if matching_skills else analysis_status
+    )
     return {
         'required_skill_coverage': required_coverage,
         'preferred_skill_coverage': preferred_coverage,
@@ -164,8 +195,15 @@ def calculate_deterministic_score(skill_matches, experience_alignment = 0,
         'education_alignment': education_score,
         'formatting_risk': formatting_risk_score,
         'overall_score': overall_score,
+        'analysis_status': analysis_status,
+        'skill_match_status': skill_match_status,
+        'resume_skill_count': resume_skill_count,
+        'job_skill_count': job_skill_count,
         'components': components,
         'matching_skills': matching_skills,
+        'matched_required_skills': matched_required_skills,
+        'matched_preferred_skills': matched_preferred_skills,
+        'matched_general_skills': matched_general_skills,
         'missing_required_skills': missing_required_skills,
         'missing_preferred_skills': missing_preferred_skills,
         'weights': scoring_weights.copy(),

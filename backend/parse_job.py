@@ -14,11 +14,12 @@ requirement_weights = {
 # Detect common section headings without depending on capitalization.
 section_patterns = {
     'required_qualifications': re.compile(
-        r'^(required qualifications?|minimum qualifications?|must have|requirements?)$', re.I
+        r'^(required qualifications?|required skills?|required skills & qualifications?|minimum qualifications?|minimum requirements?|must have|requirements?|required)$', re.I
     ),
     'preferred_qualifications': re.compile(
-        r'^(preferred qualifications?|nice to have|bonus qualifications?|desired qualifications?)$', re.I
+        r'^(preferred qualifications?|preferred skills?|nice to have|bonus qualifications?|desired qualifications?|preferred)$', re.I
     ),
+    'qualification': re.compile(r'^qualifications?$', re.I),
     'responsibilities': re.compile(
         r'^(responsibilities|what you will do|what you will be doing|duties)$', re.I
     ),
@@ -32,7 +33,8 @@ section_patterns = {
     'soft_skills': re.compile(r'^(soft skills?|competencies|core competencies)$', re.I),
     'location_work_arrangement': re.compile(
         r'^(location|work arrangement|work location|remote|about the role)$', re.I
-    )
+    ),
+    'about_the_job': re.compile(r'^about the job$', re.I)
 }
 
 
@@ -59,12 +61,25 @@ def clean_line(value):
     return re.sub(r'\s+', ' ', value).strip(' \t:')
 
 
+# Normalize layout noise while preserving the submitted text for evidence snippets.
+def normalize_job_text(text):
+    value = '' if text is None else str(text)
+    value = re.sub(r'(?m)^[ \t]*#{1,6}[ \t]*', '', value)
+    value = re.sub(r'(?m)^[ \t]*\\[ \t]*$', '', value)
+    value = re.sub(r'[•▪◦●‣]', '-', value)
+    value = re.sub(r'[‐‑‒–—]', '-', value)
+    lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in value.splitlines()]
+    return '\n'.join(lines)
+
+
 # Split the description into heading-based sections and preserve unclassified text.
-def split_sections(text):
+def build_section_records(text):
     sections = {'general': []}
+    line_sections = {}
     current_section = 'general'
-    for raw_line in str(text).splitlines():
+    for line_index, raw_line in enumerate(str(text).splitlines()):
         line = clean_line(raw_line)
+        line_sections[line_index] = current_section
         if not line:
             continue
         heading = line.rstrip(':').strip()
@@ -75,8 +90,16 @@ def split_sections(text):
         if matched_section:
             current_section = matched_section
             sections.setdefault(current_section, [])
+            line_sections[line_index] = current_section
             continue
         sections.setdefault(current_section, []).append(line)
+        line_sections[line_index] = current_section
+    return sections, line_sections
+
+
+# Keep the original public section splitter while exposing line-level section state.
+def split_sections(text):
+    sections, _ = build_section_records(text)
     return sections
 
 
@@ -107,15 +130,11 @@ def build_classified_record(name, record_type, requirement_type, evidence):
 
 # Parse a job description into stable fields used by matching and later scoring phases.
 def parse_job_description(text, job_title = None, company = None):
-    value = '' if text is None else str(text)
-    sections = split_sections(value)
+    original_value = '' if text is None else str(text)
+    value = normalize_job_text(original_value)
+    sections, line_sections = build_section_records(value)
+    normalized_lines = value.splitlines()
     lines = [line for section_lines in sections.values() for line in section_lines]
-    sentence_records = [
-        (line, section_name)
-        for section_name, section_lines in sections.items()
-        for line in section_lines
-    ]
-
     # Extract title and company from explicit fields or common metadata lines.
     metadata_text = '\n'.join(lines[:8])
     if not job_title:
@@ -135,11 +154,14 @@ def parse_job_description(text, job_title = None, company = None):
 
     # Detect technical skills and classify each occurrence by its local evidence.
     technical_skills = []
-    for evidence in extract_skill_evidence(value, source_document='job_description'):
-        line = next((line for line, section in sentence_records
-                     if evidence['normalized_skill_name'] in line.casefold()), value)
+    for evidence in extract_skill_evidence(
+            original_value, source_document='job_description'):
+        # Use the text that was actually detected so aliases inherit the correct section.
+        line_index = original_value.count('\n', 0, evidence['character_start'])
+        line = clean_line(normalized_lines[line_index]) if line_index < len(normalized_lines) else value
+        section = line_sections.get(line_index, 'general')
         requirement_type = classify_requirement(
-            line, next((section for line_value, section in sentence_records if line_value == line), 'general')
+            line, section
         )
         technical_skills.append(build_classified_record(
             evidence['normalized_skill_name'], 'technical_skill', requirement_type,
@@ -150,10 +172,13 @@ def parse_job_description(text, job_title = None, company = None):
     # Detect soft skills and explicitly give them a lower weight than technical skills.
     soft_skills = []
     for term in soft_skill_terms:
-        match = re.search(r'(?<![a-z])' + re.escape(term) + r'(?![a-z])', value, re.I)
+        match = re.search(r'(?<![a-z])' + re.escape(term) + r'(?![a-z])', original_value, re.I)
         if match:
-            evidence = value[max(0, match.start() - 60):min(len(value), match.end() + 60)].strip()
-            requirement_type = classify_requirement(evidence, 'soft_skills')
+            evidence = original_value[max(0, match.start() - 60):min(len(original_value), match.end() + 60)].strip()
+            line_index = original_value.count('\n', 0, match.start())
+            soft_line = clean_line(normalized_lines[line_index]) if line_index < len(normalized_lines) else value
+            soft_section = line_sections.get(line_index, 'general')
+            requirement_type = classify_requirement(soft_line, soft_section)
             soft_skills.append(build_classified_record(
                 term, 'soft_skill', requirement_type, evidence
             ))
@@ -180,6 +205,14 @@ def parse_job_description(text, job_title = None, company = None):
     industry_domain_terms = [term for term in industry_terms if re.search(
         r'(?<![a-z])' + re.escape(term) + r'(?![a-z])', value, re.I
     )]
+    workplace_requirements = [
+        line for line in lines
+        if re.search(r'\b(independently|independent|remote|hybrid|on-site|onsite)\b', line, re.I)
+    ]
+    responsibility_evidence = [
+        {'text_evidence': line, 'type': 'responsibility'}
+        for line in responsibilities
+    ]
 
     return {
         'schema_version': 'optimatch.job_description',
@@ -197,5 +230,8 @@ def parse_job_description(text, job_title = None, company = None):
         'location_work_arrangement': location_work_arrangement,
         'location_evidence': location_text or None,
         'seniority_level': seniority_match.group(1).casefold() if seniority_match else None,
-        'unclassified_text': sections.get('general', [])
+        'unclassified_text': sections.get('general', []),
+        'workplace_requirements': workplace_requirements,
+        'responsibility_evidence': responsibility_evidence,
+        'normalized_text': value
     }

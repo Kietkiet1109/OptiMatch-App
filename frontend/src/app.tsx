@@ -7,9 +7,11 @@ type view_state = 'form' | 'loading' | 'results';
 // Define the response shape
 type analysis_result = {
     status: 'completed';
+    analysis_status: 'scored' | 'no_skills_detected' | 'insufficient_evidence';
+    skill_match_status: 'matched' | 'zero_match' | 'no_skills_detected' | 'insufficient_evidence';
     label: string;
     overall_score: {
-        value: number;
+        value: number | null;
         scale: number;
         band: string;
     };
@@ -24,6 +26,9 @@ type analysis_result = {
         preferred_skill_coverage: number;
     };
     matching_skills: {skill: string}[];
+    matched_required_skills: {skill: string}[];
+    matched_preferred_skills: {skill: string}[];
+    matched_general_skills: {skill: string}[];
     missing_required_skills: {skill: string}[];
     missing_preferred_skills: {skill: string}[];
     resume_evidence: {normalized_skill_name?: string; text_evidence?: string}[];
@@ -32,6 +37,15 @@ type analysis_result = {
     recommendations: {skill: string; priority: string; recommended_action: string}[];
     confidence: {overall?: string};
     limitations: string[];
+    detected_resume_skills: string[];
+    detected_job_skills: (string | {skill: string; requirement_type?: string})[];
+    extraction_coverage: {
+        status: 'low' | 'available';
+        detected_job_skill_count: number;
+        detected_required_count: number;
+        detected_preferred_count: number;
+        warning: string | null;
+    };
 };
 
 // Store the product limits in one place
@@ -187,9 +201,12 @@ export const app = createElement(optimatch_app);
 const results_view = ({analysis_result, resume_file, on_start_over }: { analysis_result: analysis_result; resume_file: File | null; on_start_over: () => void }): ReactElement => (
     <section className='results_section'>
         <div className='results_header'><div><p className='eyebrow'>Analysis complete</p><h1>Your alignment overview</h1><p className='hero_description'>{resume_file?.name} · Temporary result</p></div><button type='button' className='secondary_button plain_button' onClick={on_start_over}>Start over</button></div>
-        <div className='score_card'><div className='score_ring'><strong>{analysis_result.overall_score.value}</strong><span>/ {analysis_result.overall_score.scale}</span></div><div><p className='eyebrow'>{analysis_result.label}</p><h2>{analysis_result.compatibility_band.label}</h2><p className='muted_text'>This score combines required skills, technical skills, evidence alignment, and formatting quality.</p></div></div>
+        <div className='score_card'><div className='score_ring'><strong>{analysis_result.overall_score.value ?? '—'}</strong><span>{analysis_result.overall_score.value === null ? 'not scored' : `/ ${analysis_result.overall_score.scale}`}</span></div><div><p className='eyebrow'>{analysis_result.label}</p><h2>{analysis_result.compatibility_band.label}</h2><p className='muted_text'>{analysis_result.skill_match_status === 'zero_match' ? 'Skills were detected in both documents, but none matched exactly or through a configured alias.' : analysis_result.analysis_status === 'scored' ? 'This score combines required skills, technical skills, evidence alignment, and formatting quality.' : 'No reliable compatibility score was calculated because the available skill evidence was incomplete.'}</p></div></div>
         <div className='metric_grid'>{createElement(metric_card, { label: 'Required skills', value: `${analysis_result.coverage.required_skill_coverage}%` })}{createElement(metric_card, { label: 'Technical skills', value: `${analysis_result.coverage.technical_skill_coverage}%` })}{createElement(metric_card, { label: 'Formatting risk', value: `${analysis_result.formatting_risk}%` })}</div>
-        <div className='result_grid'>{createElement(result_list, { title: 'Key strengths', items: analysis_result.matching_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Priority gaps', items: analysis_result.missing_required_skills.map((skill) => skill.skill), item_class: 'missing_item' })}{createElement(result_list, { title: 'Preferred skills', items: analysis_result.missing_preferred_skills.map((skill) => skill.skill), item_class: 'preferred_item' })}</div>
+        <div className='result_grid'>{createElement(result_list, { title: 'Matched required skills', items: analysis_result.matched_required_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing required skills', items: analysis_result.missing_required_skills.map((skill) => skill.skill), item_class: 'missing_item' })}{createElement(result_list, { title: 'Matched preferred skills', items: analysis_result.matched_preferred_skills.map((skill) => skill.skill), item_class: 'preferred_item' })}</div>
+        <div className='result_grid'>{createElement(result_list, { title: 'Matched general skills', items: analysis_result.matched_general_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing preferred skills', items: analysis_result.missing_preferred_skills.map((skill) => skill.skill), item_class: 'preferred_item' })}{createElement(result_list, { title: 'All matched skills', items: analysis_result.matching_skills.map((skill) => skill.skill), item_class: 'match_item' })}</div>
+        <div className='evidence_card'><p className='eyebrow'>Detected skills</p><h2>What OptiMatch extracted</h2><p><strong>Resume:</strong> {analysis_result.detected_resume_skills.length ? analysis_result.detected_resume_skills.join(', ') : 'No skills detected'}</p><p><strong>Job description:</strong> {analysis_result.detected_job_skills.length ? analysis_result.detected_job_skills.map((skill) => typeof skill === 'string' ? skill : skill.skill).join(', ') : 'No skills detected'}</p></div>
+        <div className='evidence_card'><p className='eyebrow'>Extraction coverage</p><h2>How much of the job description was recognized</h2><p><strong>Detected job skills:</strong> {analysis_result.extraction_coverage.detected_job_skill_count}</p><p><strong>Required requirements:</strong> {analysis_result.extraction_coverage.detected_required_count}</p><p><strong>Preferred requirements:</strong> {analysis_result.extraction_coverage.detected_preferred_count}</p>{analysis_result.extraction_coverage.warning && <p className='muted_text'>{analysis_result.extraction_coverage.warning}</p>}</div>
         <div className='evidence_card'><p className='eyebrow'>Resume evidence</p><h2>Where matching skills appear</h2><ul>{analysis_result.resume_evidence.map((evidence, index) => <li key={`${evidence.normalized_skill_name}-${index}`}><strong>{evidence.normalized_skill_name}:</strong> {evidence.text_evidence}</li>)}</ul><h3>Learning recommendations</h3><ul>{analysis_result.recommendations.map((recommendation) => <li key={recommendation.skill}><strong>{recommendation.priority} priority — {recommendation.skill}:</strong> {recommendation.recommended_action}</li>)}</ul></div>
         <div className='evidence_card'><p className='eyebrow'>Formatting checks</p><h2>Potential ATS-readability issues</h2>{analysis_result.formatting_risks.length ? <ul>{analysis_result.formatting_risks.map((risk) => <li key={risk.issue}>{risk.issue}</li>)}</ul> : <p className='muted_text'>No formatting risks were detected by the available checks.</p>}</div>
         <div className='limitation_card'><strong>Important limitation</strong>{analysis_result.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div>
