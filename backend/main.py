@@ -1,9 +1,112 @@
+import json
+import os
+import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from .analysis_schema import build_analysis_result
 from .extract_skills import extract_skill_evidence
 from .parse_job import parse_job_description
+from .recommend_engine import generate_learning_resources
+from .recommend_engine import generate_recommendations
 from .validate_resume import ResumeValidationError, process_temporary_resume
+
+# Load local environment settings without exposing secrets to the frontend
+load_dotenv()
+chatbot_api_url = os.getenv('CHATBOT_API_URL').strip()
+chatbot_api_key = os.getenv('CHATBOT_API_KEY').strip()
+model = os.getenv('MODEL', 'openai/gpt-oss-20b').strip()
+
+# Define the strict JSON contract requested
+resource_response_schema = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'recommendations': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'skill': {'type': 'string'},
+                    'resources': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'additionalProperties': False,
+                            'properties': {
+                                'title': {'type': 'string'},
+                                'provider': {'type': 'string'},
+                                'resource_type': {
+                                    'type': 'string',
+                                    'enum': [
+                                        'official_documentation', 'online_course',
+                                        'guided_tutorial', 'video', 'practice_project'
+                                    ]
+                                },
+                                'url': {'type': 'string'},
+                                'difficulty': {
+                                    'type': 'string',
+                                    'enum': ['beginner', 'intermediate']
+                                },
+                                'estimated_time': {'type': 'string'},
+                                'reason': {'type': 'string'},
+                                'verification_status': {
+                                    'type': 'string',
+                                    'enum': ['verified', 'needs_verification']
+                                }
+                            },
+                            'required': [
+                                'title', 'provider', 'resource_type', 'url',
+                                'difficulty', 'estimated_time', 'reason',
+                                'verification_status'
+                            ]
+                        }
+                    },
+                    'practice_task': {'type': 'string'},
+                    'learning_order': {'type': 'integer'}
+                },
+                'required': [
+                    'skill', 'resources', 'practice_task', 'learning_order'
+                ]
+            }
+        }
+    },
+    'required': ['recommendations']
+}
+
+# Send the gap-only request to Groq and return its generated JSON content
+def request_chatbot(chatbot_request):
+    headers = {'Content-Type': 'application/json'}
+    if chatbot_api_key:
+        headers['Authorization'] = f'Bearer {chatbot_api_key}'
+    groq_request = {
+        'model': model,
+        'messages': [
+            {'role': 'system', 'content': chatbot_request['system']},
+            {
+                'role': 'user',
+                'content': json.dumps(chatbot_request['uploaded_data'])
+            }
+        ],
+        'temperature': 0,
+        'response_format': {
+            'type': 'json_schema',
+            'json_schema': {
+                'name': 'resource_recommendation_response',
+                'strict': True,
+                'schema': resource_response_schema
+            }
+        }
+    }
+    response = requests.post(
+        chatbot_api_url,
+        json=groq_request,
+        headers=headers,
+        timeout=30
+    )
+    response.raise_for_status()
+    return response.json()['choices'][0]['message']['content']
 
 # Create the HTTP surface
 app = FastAPI(title='OptiMatch API')
@@ -80,6 +183,27 @@ def analyze_resume(resume, job_description_text):
             {'skill': skill['skill'], 'text_evidence': skill['job_evidence'][0]['text_evidence']}
             for skill in skill_matches
         ]
+        recommendations = generate_recommendations(
+            skill_matches,
+            resume_evidence=resume_evidence,
+            job_evidence=job_evidence
+        )
+        resource_recommendations = None
+        if chatbot_api_url and recommendations:
+            try:
+                resource_recommendations = generate_learning_resources(
+                    recommendations,
+                    request_chatbot,
+                    target_role=parsed_job.get('job_title')
+                )
+            except (requests.RequestException, ValueError, TypeError, KeyError, IndexError):
+                resource_recommendations = {
+                    'recommendations': [],
+                    'validation': {
+                        'status': 'rejected',
+                        'issues': ['chatbot resource generation failed']
+                    }
+                }
         return build_analysis_result(
             {
                 'resume_pdf': resume,
@@ -89,10 +213,11 @@ def analyze_resume(resume, job_description_text):
             resume_evidence,
             job_evidence,
             build_formatting_risks(normalized_resume),
-            [],
+            recommendations,
             {'overall': 'deterministic'},
             [],
-            detected_job_skills=detected_job_skills
+            detected_job_skills=detected_job_skills,
+            resource_recommendations=resource_recommendations
         )
 
     return process_temporary_resume(

@@ -100,7 +100,8 @@ def build_analysis_result(
         experience_alignment=None,
         education_alignment=None,
         formatting_risk=None,
-        detected_job_skills=None):
+        detected_job_skills=None,
+        resource_recommendations=None):
 
     # Stop before scoring when the submitted input is invalid.
     validation_errors = validate_analysis_input(analysis_input)
@@ -235,6 +236,13 @@ def build_analysis_result(
         'job_description_structure': job_description_structure,
         'formatting_risks': formatting_risks,
         'recommendations': recommendations,
+        'resource_recommendations': resource_recommendations or {
+            'recommendations': [],
+            'validation': {
+                'status': 'not_requested',
+                'issues': []
+            }
+        },
         'confidence': confidence,
         'limitations': limitations + ([
             'No comparable skills were detected. This is an analysis limitation, not evidence of incompatibility.'

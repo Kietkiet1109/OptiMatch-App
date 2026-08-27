@@ -14,3 +14,4 @@ pypdf>=6.0
 fastapi>=0.115
 uvicorn>=0.30
 python-multipart>=0.0.9
+python-dotenv>=1.0

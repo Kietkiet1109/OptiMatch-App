@@ -1,3 +1,4 @@
+from backend.recommend_engine import generate_learning_resources
 from backend.recommend_engine import generate_recommendations
 
 
@@ -53,3 +54,90 @@ def test_generate_recommendations_handles_weak_required_technical_evidence():
     assert recommendations[0]['recommendation_type'] == 'learning_and_evidence'
     assert 'limited evidence' in recommendations[0]['why_it_matters']
 
+
+# Verify that the chatbot receives only deterministic required technical gaps.
+def test_generate_learning_resources_sends_only_gap_data():
+    recommendations = generate_recommendations([
+        {
+            'skill': 'docker',
+            'skill_type': 'technical',
+            'requirement_type': 'required',
+            'match_status': 'not_detected',
+            'job_evidence': [{'text_evidence': 'Docker is required.'}],
+        },
+        {
+            'skill': 'python',
+            'skill_type': 'technical',
+            'requirement_type': 'required',
+            'match_status': 'matched',
+        }
+    ])
+    captured_request = {}
+
+    # Return one valid structured resource from the fake chatbot adapter.
+    def chatbot_callable(request):
+        captured_request.update(request)
+        return {
+            'recommendations': [{
+                'skill': 'docker',
+                'resources': [{
+                    'title': 'Docker Get Started Guide',
+                    'provider': 'Docker',
+                    'resource_type': 'official_documentation',
+                    'url': 'https://docs.docker.com/get-started/',
+                    'difficulty': 'beginner',
+                    'estimated_time': '4-6 hours',
+                    'reason': 'Introduces containers and Dockerfiles.',
+                    'verification_status': 'needs_verification'
+                }],
+                'practice_task': 'Containerize a small API.',
+                'learning_order': 1
+            }]
+        }
+
+    result = generate_learning_resources(
+        recommendations, chatbot_callable, target_role='Backend Developer'
+    )
+
+    assert captured_request['uploaded_data']['target_role'] == 'Backend Developer'
+    assert captured_request['uploaded_data']['missing_required_technical_skills'] == [{
+        'skill': 'docker',
+        'job_evidence': 'Docker is required.',
+        'resume_status': 'not_detected',
+        'priority': 'high'
+    }]
+    assert result['validation']['status'] == 'accepted'
+
+
+# Verify that unsupported providers and malformed resources are rejected.
+def test_validate_resource_response_rejects_unsafe_resource_data():
+    recommendations = generate_recommendations([{
+        'skill': 'docker',
+        'skill_type': 'technical',
+        'requirement_type': 'required',
+        'match_status': 'not_detected',
+    }])
+
+    result = generate_learning_resources(
+        recommendations,
+        lambda request: {
+            'recommendations': [{
+                'skill': 'docker',
+                'resources': [{
+                    'title': 'Unknown Course',
+                    'provider': 'Unknown Provider',
+                    'resource_type': 'online_course',
+                    'url': 'not-a-url',
+                    'difficulty': 'beginner',
+                    'estimated_time': '1 hour',
+                    'reason': 'Learn Docker.',
+                    'verification_status': 'needs_verification'
+                }],
+                'practice_task': 'Build a container.',
+                'learning_order': 1
+            }]
+        }
+    )
+
+    assert result['recommendations'] == []
+    assert result['validation']['status'] == 'rejected'
