@@ -42,6 +42,7 @@ def build_skill_matches(resume_text, parsed_job):
             skill_matches.append({
                 'skill': skill_name,
                 'normalized_skill_name': skill_name.casefold(),
+                'skill_type': 'technical' if group_name == 'technical_skills' else 'soft',
                 'requirement_type': job_skill['requirement_type'],
                 'match_status': 'matched' if matched_evidence else 'not_detected',
                 'resume_evidence': matched_evidence,
