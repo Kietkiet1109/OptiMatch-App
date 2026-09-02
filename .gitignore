@@ -20,7 +20,8 @@ env/
 .idea/
 
 # Environment variables and secrets
-.env
+frontend/.env
+backend/.env
 .env.*
 !.env.example
 

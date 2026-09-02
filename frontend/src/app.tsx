@@ -152,8 +152,8 @@ const optimatch_app = (): ReactElement => {
         form_data.append('resume', resume_file);
         form_data.append('job_description', job_description);
         try {
-            // Keep the request on the Vite frontend
-            const api_endpoint = `${window.location.origin}/api/analyze`;
+            // Send the analysis request to the backend
+            const api_endpoint = import.meta.env.VITE_ANALYZE_API_URL;
             const response = await fetch(api_endpoint, {
                 method: 'POST',
                 body: form_data,
