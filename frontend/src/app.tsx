@@ -153,7 +153,8 @@ const optimatch_app = (): ReactElement => {
         form_data.append('job_description', job_description);
         try {
             // Send the analysis request to the backend
-            const api_endpoint = import.meta.env.VITE_ANALYZE_API_URL;
+            // Use the deployed API when configured, otherwise use the same-origin API route.
+            const api_endpoint = import.meta.env.VITE_ANALYZE_API_URL || '/api/analyze';
             const response = await fetch(api_endpoint, {
                 method: 'POST',
                 body: form_data,
