@@ -1,6 +1,11 @@
 # OptiMatch-App
 
-An evolving AI-assisted career application toolkit for measuring resume–job alignment, identifying technical skill gaps, recommending learning paths, and improving resumes and cover letters.
+An evolving AI-assisted career application toolkit for measuring resume–job alignment, identifying technical skill gaps, recommending learning paths, and, in future releases, improving resumes and cover letters.
+
+The application is available at:
+
+- Frontend: [https://optimatch.pages.dev/](https://optimatch.pages.dev/)
+- Backend API: [https://optimatch-cufxajavhvggd0h9.westus-01.azurewebsites.net](https://optimatch-cufxajavhvggd0h9.westus-01.azurewebsites.net)
 
 ## Overview
 
@@ -1384,7 +1389,7 @@ python versions/OptiMatchv1/backend/recommend_courses.py \
 
 ## Run OptiMatchv2
 
-OptiMatchv2 currently contains the React TypeScript frontend shell for Phase 1 and Phase 2. The current frontend uses a fake analysis response, so a backend or LLM API key is not required to run the interface locally.
+OptiMatchv2 is a completed React TypeScript application connected to a FastAPI backend. It accepts a resume PDF and job description, returns deterministic compatibility analysis, and displays explainable skill matches, missing skills, evidence, formatting risks, and learning recommendations.
 
 ### Prerequisites
 
@@ -1419,7 +1424,7 @@ Open the local URL shown in the terminal. The default URL is:
 http://localhost:5173
 ```
 
-### Test the Phase 2 interface
+### Test the OptiMatchv2 interface
 
 Verify the following workflow:
 
@@ -1427,9 +1432,9 @@ Verify the following workflow:
 2. Confirm that non-PDF files are rejected.
 3. Confirm that files larger than 5 MB are rejected.
 4. Paste a job description containing at least 80 characters.
-5. Select **Analyze my alignment**.
+5. Select **Analyze my resume**.
 6. Confirm that the loading state appears.
-7. Confirm that the fake results page appears.
+7. Confirm that the analysis results page appears.
 8. Confirm that the score, matching skills, missing skills, evidence, recommendations, and limitations are displayed.
 9. Select **Start over** and confirm that the temporary result is removed.
 
@@ -1625,7 +1630,7 @@ Additional measurable criteria may include:
 | Version | Status |
 |---|---|
 | **OptiMatchv1** | In development |
-| **OptiMatchv2** | Planned |
+| **OptiMatchv2** | Complete and hosted |
 | **OptiMatchv3** | Planned |
 
 ## Development Sequence
@@ -1646,13 +1651,13 @@ Additional measurable criteria may include:
 ### Phase 2: Build OptiMatchv2
 
 - [X] Create resume and job-description input interfaces.
-- [ ] Add document parsing.
-- [ ] Define structured LLM output schemas.
-- [ ] Integrate deterministic scores with LLM explanations.
-- [ ] Build a general technical-learning recommendation catalogue.
-- [ ] Add privacy controls.
-- [ ] Add evaluation and monitoring.
-- [ ] Deploy the application.
+- [X] Add document parsing.
+- [X] Define structured LLM output schemas.
+- [X] Integrate deterministic scores with LLM explanations.
+- [X] Build a general technical-learning recommendation catalogue.
+- [X] Add privacy controls.
+- [X] Add evaluation and monitoring.
+- [X] Deploy the application.
 
 ### Phase 3: Build OptiMatchv3
 

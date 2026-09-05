@@ -162,12 +162,12 @@ const optimatch_app = (): ReactElement => {
             const response_text = await response.text();
             let response_data: {detail?: string; [key: string]: unknown} = {};
             if (!response_text.trim()) {
-                throw new Error('The backend is not running. Start the OptiMatch API on port 8000 and try again.');
+                throw new Error('The server is currently unavailable. Please try again later.');
             }
             try {
                 response_data = JSON.parse(response_text);
             } catch {
-                throw new Error('The backend returned an invalid response.');
+                throw new Error('The server returned an invalid response.');
             }
             if (!response.ok) {
                 throw new Error(response_data.detail || 'The analysis could not be completed.');
@@ -175,7 +175,7 @@ const optimatch_app = (): ReactElement => {
             set_analysis_result(response_data as analysis_result);
             set_view_state('results');
         } catch (error) {
-            set_error_message(error instanceof TypeError ? 'The backend is not running. Start the OptiMatch API on port 8000 and try again.' : error instanceof Error ? error.message : 'The analysis could not be completed.');
+            set_error_message(error instanceof TypeError ? 'The server is currently unavailable. Please try again later.' : error instanceof Error ? error.message : 'The analysis could not be completed.');
             set_view_state('form');
         }
     };
@@ -190,44 +190,158 @@ const optimatch_app = (): ReactElement => {
     };
 
     return (
-        <main className='page_shell'>
-            <header className='site_header'>
-              <div className='brand_mark'>Opti<span>Match</span></div>
-              <div className='beta_badge'>Private beta</div>
+        <main className="page_shell">
+            <header className="site_header">
+                <div className="brand_mark">Opti<span>Match</span></div>
+                <div className="beta_badge">Public beta</div>
             </header>
 
-            {view_state === 'form' && (
-                <section className='hero_section'>
-                    <div className='hero_copy'>
-                      <p className='eyebrow'>Resume intelligence for your next application</p>
-                      <h1>Understand how your resume aligns with the role.</h1>
-                      <p className='hero_description'>Upload a text-based resume PDF and paste one job description to receive a transparent compatibility estimate.</p>
+            {view_state === "form" && (
+                <section className="hero_section">
+                    <div className="hero_copy">
+                        <p className="eyebrow">
+                            Resume intelligence for your next application
+                        </p>
+
+                        <h1>
+                            Understand how your resume aligns with the role.
+                        </h1>
+
+                        <p className="hero_description">
+                            Upload a text-based resume PDF and paste one job description
+                            to receive a transparent compatibility estimate.
+                        </p>
                     </div>
 
-                    <section className='analysis_card' aria-label='Resume analysis form'>
-                        <div className='step_heading'><span>01</span><div><h2>Add your resume</h2><p>Text-based PDF only · Maximum 5 MB</p></div></div>
-                        <div className={`upload_zone ${is_dragging ? 'upload_zone_dragging' : ''}`} onDragOver={(event) => { event.preventDefault(); set_is_dragging(true); }} onDragLeave={() => set_is_dragging(false)} onDrop={handle_drop}>
+                    <section
+                        className="analysis_card"
+                        aria-label="Resume analysis form"
+                    >
+                        <div className="step_heading">
+                            <span>01</span>
+
+                            <div>
+                                <h2>Add your resume</h2>
+                                <p>Text-based PDF only · Maximum 5 MB</p>
+                            </div>
+                        </div>
+
+                        <div
+                            className={`upload_zone ${
+                                is_dragging ? "upload_zone_dragging" : ""
+                            }`}
+                            onDragOver={(event) => {
+                                event.preventDefault();
+                                set_is_dragging(true);
+                            }}
+                            onDragLeave={() => set_is_dragging(false)}
+                            onDrop={handle_drop}
+                        >
                             {resume_file ? (
-                                <div className='file_summary'><div><strong>{resume_file.name}</strong><span>{format_file_size(resume_file.size)}</span></div><button type='button' className='text_button' onClick={() => set_resume_file(null)}>Remove</button></div>
+                                <div className="file_summary">
+                                    <div>
+                                        <strong>{resume_file.name}</strong>
+                                        <span>
+                                            {format_file_size(resume_file.size)}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="text_button"
+                                        onClick={() => set_resume_file(null)}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             ) : (
-                                <><div className='upload_icon'>↑</div><strong>Drop your resume here</strong><span>or</span><label className='secondary_button'>Browse PDF<input type='file' accept='.pdf,application/pdf' onChange={handle_file_change} /></label></>
+                                <>
+                                    <div className="upload_icon">↑</div>
+                                    <strong>Drop your resume here</strong>
+                                    <span>or</span>
+                                    <label className="secondary_button">
+                                        Browse PDF
+                                        <input
+                                            type="file"
+                                            accept=".pdf,application/pdf"
+                                            onChange={handle_file_change}
+                                        />
+                                    </label>
+                                </>
                             )}
                         </div>
 
-                        <div className='step_heading'><span>02</span><div><h2>Paste the job description</h2><p>Include the complete posting for a more useful comparison</p></div></div>
-                        <textarea className='job_input' value={job_description} onChange={(event) => set_job_description(event.target.value)} placeholder='Paste the job description here...' aria-label='Job description' />
-                        <div className='input_footer'><span>{job_description.length} characters</span><span>Not saved</span></div>
+                        <div className="step_heading">
+                            <span>02</span>
+                            <div>
+                                <h2>Paste the job description</h2>
+                                <p>
+                                    Include the complete posting for a more useful
+                                    comparison
+                                </p>
+                            </div>
+                        </div>
 
-                        {error_message && <div className='error_message' role='alert'>{error_message}</div>}
-                        <button type='button' className='primary_button full_width' onClick={handle_submit}>Analyze my resume <span>→</span></button>
-                        <p className='privacy_note'>Your resume and job description are processed temporarily and are not saved.</p>
+                        <textarea
+                            className="job_input"
+                            value={job_description}
+                            onChange={(event) =>
+                                set_job_description(event.target.value)
+                            }
+                            placeholder="Paste the job description here..."
+                            aria-label="Job description"
+                        />
+
+                        <div className="input_footer">
+                            <span>{job_description.length} characters</span>
+                            <span>Not saved</span>
+                        </div>
+
+                        {error_message && (
+                            <div
+                                className="error_message"
+                                role="alert"
+                            >
+                                {error_message}
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            className="primary_button full_width"
+                            onClick={handle_submit}
+                        >
+                            Analyze my resume
+                            <span>→</span>
+                        </button>
+
+                        <p className="privacy_note">
+                            Your resume and job description are processed temporarily
+                            and are not saved.
+                        </p>
                     </section>
                 </section>
             )}
 
-            {view_state === 'loading' && <section className='status_panel'><div className='loading_orbit' /><p className='eyebrow'>OptiMatch is working</p><h1>Analyzing your alignment...</h1><p>We are comparing the requirements in the job description with the evidence in your resume.</p></section>}
+            {view_state === "loading" && (
+                <section className="status_panel">
+                    <div className="loading_orbit" />
+                    <p className="eyebrow">OptiMatch is working</p>
+                    <h1>Analyzing your alignment...</h1>
+                    <p>
+                        We are comparing the requirements in the job description
+                        with the evidence in your resume.
+                    </p>
+                </section>
+            )}
 
-            {view_state === 'results' && analysis_result && createElement(results_view, { analysis_result, resume_file, on_start_over: handle_start_over })}
+            {view_state === "results" &&
+                analysis_result &&
+                createElement(results_view, {
+                    analysis_result,
+                    resume_file,
+                    on_start_over: handle_start_over,
+                })}
         </main>
     );
 };
@@ -238,22 +352,319 @@ export const app = createElement(optimatch_app);
 // Display the explainable result returned by the backend
 const results_view = ({analysis_result, resume_file, on_start_over }: { analysis_result: analysis_result; resume_file: File | null; on_start_over: () => void }): ReactElement => (
     <section className='results_section'>
-        <div className='results_header'><div><p className='eyebrow'>Analysis complete</p><h1>Your alignment overview</h1><p className='hero_description'>{resume_file?.name} · Temporary result</p></div><button type='button' className='secondary_button plain_button' onClick={on_start_over}>Start over</button></div>
-        <div className='score_card'><div className='score_ring'><strong>{analysis_result.overall_score.value ?? '—'}</strong><span>{analysis_result.overall_score.value === null ? 'not scored' : `/ ${analysis_result.overall_score.scale}`}</span></div><div><p className='eyebrow'>{analysis_result.label}</p><h2>{analysis_result.compatibility_band.label}</h2><p className='muted_text'>{analysis_result.skill_match_status === 'zero_match' ? 'Skills were detected in both documents, but none matched exactly or through a configured alias.' : analysis_result.analysis_status === 'scored' ? 'This score combines required skills, technical skills, evidence alignment, and formatting quality.' : 'No reliable compatibility score was calculated because the available skill evidence was incomplete.'}</p></div></div>
-        <div className='metric_grid'>{createElement(metric_card, { label: 'Required skills', value: `${analysis_result.coverage.required_skill_coverage}%` })}{createElement(metric_card, { label: 'Technical skills', value: `${analysis_result.coverage.technical_skill_coverage}%` })}{createElement(metric_card, { label: 'Formatting risk', value: `${analysis_result.formatting_risk}%` })}</div>
-        <div className='result_grid'>{createElement(result_list, { title: 'Matched required skills', items: analysis_result.matched_required_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing required skills', items: analysis_result.missing_required_skills.map((skill) => skill.alternatives?.length ? skill.alternatives.join(' or ') : skill.skill), item_class: 'missing_item' })}{createElement(result_list, { title: 'Matched preferred skills', items: analysis_result.matched_preferred_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'preferred_item' })}</div>
-        <div className='result_grid'>{createElement(result_list, { title: 'Matched general skills', items: analysis_result.matched_general_skills.map((skill) => skill.skill), item_class: 'match_item' })}{createElement(result_list, { title: 'Missing preferred skills', items: analysis_result.missing_preferred_skills.map((skill) => skill.alternatives?.length ? skill.alternatives.join(' or ') : skill.skill), item_class: 'preferred_item' })}{createElement(result_list, { title: 'All matched skills', items: analysis_result.matching_skills.map((skill) => skill.matched_alternatives?.length ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(', ')})` : skill.skill), item_class: 'match_item' })}</div>
-        <div className='evidence_card'><p className='eyebrow'>Detected skills</p><p><strong>Resume:</strong> {analysis_result.detected_resume_skills.length ? analysis_result.detected_resume_skills.join(', ') : 'No skills detected'}</p><p><strong>Job description:</strong> {analysis_result.detected_job_skills.length ? analysis_result.detected_job_skills.map((skill) => typeof skill === 'string' ? skill : skill.skill).join(', ') : 'No skills detected'}</p></div>
-        <div className='evidence_card'><p className='eyebrow'>Extraction coverage</p><p><strong>Detected job skills:</strong> {analysis_result.extraction_coverage.detected_job_skill_count}</p><p><strong>Required requirements:</strong> {analysis_result.extraction_coverage.detected_required_count}</p><p><strong>Preferred requirements:</strong> {analysis_result.extraction_coverage.detected_preferred_count}</p>{analysis_result.extraction_coverage.warning && <p className='muted_text'>{analysis_result.extraction_coverage.warning}</p>}</div>
-        <div className='evidence_card'><p className='eyebrow'>Matching skills evidence</p><ul>{analysis_result.resume_evidence.map((evidence, index) => <li key={`${evidence.normalized_skill_name}-${index}`}><strong>{evidence.normalized_skill_name}:</strong> {evidence.text_evidence}</li>)}</ul></div>
-        {analysis_result.resource_recommendations?.recommendations.length ? <div className='evidence_card'><p className='eyebrow'>Online learning resources</p>{analysis_result.resource_recommendations.recommendations.map((recommendation) => <section key={recommendation.skill}><h3>{recommendation.learning_order}. {recommendation.skill}</h3><ul>{recommendation.resources.map((resource) => <li key={resource.url}><a href={resource.url} target='_blank' rel='noreferrer'>{resource.title}</a> · {resource.provider}<br /><span>{resource.difficulty} · {resource.estimated_time} · {resource.verification_status.replace('_', ' ')}</span><br />{resource.reason}</li>)}</ul><p><strong>Practice task:</strong> {recommendation.practice_task}</p></section>)}</div> : analysis_result.resource_recommendations?.validation.status === 'rejected' ? <div className='evidence_card'><p className='eyebrow'>Learning resources unavailable</p><p>The validated chatbot response could not be displayed.</p></div> : null}
-        <div className='evidence_card'><p className='eyebrow'>ATS-readability checks</p>{analysis_result.formatting_risks.length ? <ul>{analysis_result.formatting_risks.map((risk) => <li key={risk.issue}>{risk.issue}</li>)}</ul> : <p className='muted_text'>No formatting risks were detected by the available checks.</p>}</div>
-        <div className='limitation_card'><strong>Important limitation</strong>{analysis_result.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div>
+        <div className="results_header">
+            <div>
+                <p className="eyebrow">Analysis complete</p>
+                <h1>Your alignment overview</h1>
+                <p className="hero_description">
+                    {resume_file?.name} · Temporary result
+                </p>
+            </div>
+
+            <button type="button" className="secondary_button plain_button"
+                onClick={on_start_over}>Start over</button>
+        </div>
+
+        <div className="score_card">
+            <div className="score_ring">
+                <strong>{analysis_result.overall_score.value ?? "—"}</strong>
+
+                <span>
+                    {analysis_result.overall_score.value === null
+                        ? "not scored"
+                        : `/ ${analysis_result.overall_score.scale}`}
+                </span>
+            </div>
+
+            <div>
+                <p className="eyebrow">{analysis_result.label}</p>
+                <h2>{analysis_result.compatibility_band.label}</h2>
+
+                <p className="muted_text">
+                    {analysis_result.skill_match_status === "zero_match"
+                        ? "Skills were detected in both documents, but none matched exactly or through a configured alias."
+                        : analysis_result.analysis_status === "scored"
+                            ? "This score combines required skills, technical skills, evidence alignment, and formatting quality."
+                            : "No reliable compatibility score was calculated because the available skill evidence was incomplete."}
+                </p>
+            </div>
+        </div>
+
+        <div className="metric_grid">
+            {createElement(metric_card, {
+                label: "Required skills",
+                value: `${analysis_result.coverage.required_skill_coverage}%`,
+            })}
+
+            {createElement(metric_card, {
+                label: "Technical skills",
+                value: `${analysis_result.coverage.technical_skill_coverage}%`,
+            })}
+
+            {createElement(metric_card, {
+                label: "Formatting risk",
+                value: `${analysis_result.formatting_risk}%`,
+            })}
+        </div>
+
+        <div className="result_grid">
+            {createElement(result_list, {
+                title: "Matched required skills",
+                items: analysis_result.matched_required_skills.map((skill) =>
+                    skill.matched_alternatives?.length
+                        ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(", ")})`
+                        : skill.skill
+                ),
+                item_class: "match_item",
+            })}
+
+            {createElement(result_list, {
+                title: "Missing required skills",
+                items: analysis_result.missing_required_skills.map((skill) =>
+                    skill.alternatives?.length
+                        ? skill.alternatives.join(" or ")
+                        : skill.skill
+                ),
+                item_class: "missing_item",
+            })}
+
+            {createElement(result_list, {
+                title: "Matched preferred skills",
+                items: analysis_result.matched_preferred_skills.map((skill) =>
+                    skill.matched_alternatives?.length
+                        ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(", ")})`
+                        : skill.skill
+                ),
+                item_class: "match_item",
+            })}
+        </div>
+
+        <div className="result_grid">
+            {createElement(result_list, {
+                title: "Matched general skills",
+                items: analysis_result.matched_general_skills.map(
+                    (skill) => skill.skill
+                ),
+                item_class: "match_item",
+            })}
+
+            {createElement(result_list, {
+                title: "Missing preferred skills",
+                items: analysis_result.missing_preferred_skills.map((skill) =>
+                    skill.alternatives?.length
+                        ? skill.alternatives.join(" or ")
+                        : skill.skill
+                ),
+                item_class: "preferred_item",
+            })}
+
+            {createElement(result_list, {
+                title: "All matched skills",
+                items: analysis_result.matching_skills.map((skill) =>
+                    skill.matched_alternatives?.length
+                        ? `${skill.matched_alternatives[0]} (one of ${skill.alternatives?.join(", ")})`
+                        : skill.skill
+                ),
+                item_class: "match_item",
+            })}
+        </div>
+
+        <div className="evidence_card">
+            <p className="eyebrow">Detected skills</p>
+
+            <p>
+                <strong>Resume:</strong>{" "}
+                {analysis_result.detected_resume_skills.length
+                    ? analysis_result.detected_resume_skills.join(", ")
+                    : "No skills detected"}
+            </p>
+
+            <p>
+                <strong>Job description:</strong>{" "}
+                {analysis_result.detected_job_skills.length
+                    ? analysis_result.detected_job_skills
+                          .map((skill) =>
+                              typeof skill === "string" ? skill : skill.skill
+                          )
+                          .join(", ")
+                    : "No skills detected"}
+            </p>
+        </div>
+
+        <div className="evidence_card">
+            <p className="eyebrow">Extraction coverage</p>
+
+            <p>
+                <strong>Detected job skills:</strong>{" "}
+                {analysis_result.extraction_coverage.detected_job_skill_count}
+            </p>
+
+            <p>
+                <strong>Required requirements:</strong>{" "}
+                {analysis_result.extraction_coverage.detected_required_count}
+            </p>
+
+            <p>
+                <strong>Preferred requirements:</strong>{" "}
+                {analysis_result.extraction_coverage.detected_preferred_count}
+            </p>
+
+            {analysis_result.extraction_coverage.warning && (
+                <p className="muted_text">
+                    {analysis_result.extraction_coverage.warning}
+                </p>
+            )}
+        </div>
+
+        <div className="evidence_card">
+            <p className="eyebrow">Matching skills evidence</p>
+
+            <ul>
+                {analysis_result.resume_evidence.map((evidence, index) => (
+                    <li
+                        key={`${evidence.normalized_skill_name}-${index}`}
+                    >
+                        <strong>
+                            {evidence.normalized_skill_name}:
+                        </strong>{" "}
+                        {evidence.text_evidence}
+                    </li>
+                ))}
+            </ul>
+        </div>
+
+        {analysis_result.resource_recommendations?.recommendations.length ? (
+            <div className="evidence_card">
+                <p className="eyebrow">Online learning resources</p>
+
+                {analysis_result.resource_recommendations.recommendations.map(
+                    (recommendation) => (
+                        <section key={recommendation.skill}>
+                            <h3>
+                                {recommendation.learning_order}.{" "}
+                                {recommendation.skill}
+                            </h3>
+
+                            <ul>
+                                {recommendation.resources.map((resource) => (
+                                    <li key={resource.url}>
+                                        <a
+                                            href={resource.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            {resource.title}
+                                        </a>
+
+                                        {" · "}
+                                        {resource.provider}
+
+                                        <br />
+
+                                        <span>
+                                            {resource.difficulty} ·{" "}
+                                            {resource.estimated_time} ·{" "}
+                                            {resource.verification_status.replace(
+                                                "_",
+                                                " "
+                                            )}
+                                        </span>
+
+                                        <br />
+
+                                        {resource.reason}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <p>
+                                <strong>Practice task:</strong>{" "}
+                                {recommendation.practice_task}
+                            </p>
+                        </section>
+                    )
+                )}
+            </div>
+        ) : analysis_result.resource_recommendations?.validation.status ===
+          "rejected" ? (
+            <div className="evidence_card">
+                <p className="eyebrow">
+                    Learning resources unavailable
+                </p>
+
+                <p>
+                    The validated chatbot response could not be displayed.
+                </p>
+            </div>
+        ) : null}
+
+        <div className="evidence_card">
+            <p className="eyebrow">ATS-readability checks</p>
+
+            {analysis_result.formatting_risks.length ? (
+                <ul>
+                    {analysis_result.formatting_risks.map((risk) => (
+                        <li key={risk.issue}>
+                            {risk.issue}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="muted_text">
+                    No formatting risks were detected by the available checks.
+                </p>
+            )}
+        </div>
+
+        <div className="limitation_card">
+            <strong>Important limitation</strong>
+
+            {analysis_result.limitations.map((limitation) => (
+                <p key={limitation}>
+                    {limitation}
+                </p>
+            ))}
+        </div>
     </section>
 );
 
 // Render one numeric summary card without introducing a separate data model
-const metric_card = ({ label, value }: { label: string; value: string }): ReactElement => <div className='metric_card'><span>{label}</span><strong>{value}</strong></div>;
+const metric_card = ({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}): ReactElement => (
+    <div className="metric_card">
+        <span>{label}</span>
+        <strong>{value}</strong>
+    </div>
+);
 
 // Render one skill group with a distinct visual meaning
-const result_list = ({ title, items, item_class }: { title: string; items: string[]; item_class: string }): ReactElement => <div className='result_list'><h3>{title}</h3>{items.map((item) => <div className={`skill_item ${item_class}`} key={item}><span>{item_class === 'match_item' ? '✓' : '!'}</span>{item}</div>)}</div>;
+const result_list = ({
+    title,
+    items,
+    item_class,
+}: {
+    title: string;
+    items: string[];
+    item_class: string;
+}): ReactElement => (
+    <div className="result_list">
+        <h3>{title}</h3>
+
+        {items.map((item) => (
+            <div
+                className={`skill_item ${item_class}`}
+                key={item}
+            >
+                <span>
+                    {item_class === "match_item" ? "✓" : "!"}
+                </span>
+                {item}
+            </div>
+        ))}
+    </div>
+);
